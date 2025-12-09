@@ -40,6 +40,7 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
             ),
 
+
             const SizedBox(height: 25),
 
             _inputLabel("Enter your username"),
@@ -152,3 +153,4 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 }
+

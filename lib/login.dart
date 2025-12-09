@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'questpage.dart';
 import 'signup_page.dart';
 
 void main() {
@@ -91,7 +92,11 @@ class LoginPage extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 15),
                   ),
                   onPressed: () {
-                    // login logic here
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => GuestPage()),
+                    );
+
                   },
                   child: const Text(
                     "Login",
