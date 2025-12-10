@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
+
+
 class GuestPage extends StatelessWidget {
   const GuestPage({super.key});
 
   // List of images for the carousel
   final List<String> welcomeImages = const [
-    'assets/images/welcome1.jpg',
-    'assets/images/welcome2.jpg',
-    'assets/images/welcome3.jpg',
+    'assets/welcome1.jpg',
+    'assets/welcome2.jpg',
+    'assets/welcome3.jpg',
   ];
 
   // Corresponding overlay texts
@@ -23,6 +25,7 @@ class GuestPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+
         child: Column(
           children: [
             // Carousel for Welcome Images
