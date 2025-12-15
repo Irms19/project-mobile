@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'floating_nav_bar.dart';
 import 'models/venue.dart';
+import 'guestbookingpage.dart';
+
 
 class GuestPage extends StatelessWidget {
   GuestPage({super.key});
@@ -138,37 +140,49 @@ class GuestPage extends StatelessWidget {
                     itemCount: venues.length,
                     itemBuilder: (context, index) {
                       final venue = venues[index];
-                      return Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                        elevation: 15,
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(10),
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(5),
-                            child: Image.asset(
-                              venue.imagePath,
-                              width: 100,
-                              height: 80,
-                              fit: BoxFit.cover,
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(15),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => GuestBookingPage(venue: venue),
                             ),
+                          );
+                        },
+                        child: Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
                           ),
-                          title: Text(
-                            venue.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                          elevation: 15,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(10),
+                            leading: ClipRRect(
+                              borderRadius: BorderRadius.circular(5),
+                              child: Image.asset(
+                                venue.imagePath,
+                                width: 100,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
                             ),
-                          ),
-                          subtitle: Text(venue.info),
-                          trailing: Text(
-                            venue.price,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                              fontSize: 15,
+                            title: Text(
+                              venue.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: Text(venue.info),
+                            trailing: Text(
+                              venue.price,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                                fontSize: 15,
+                              ),
                             ),
                           ),
                         ),
@@ -176,13 +190,14 @@ class GuestPage extends StatelessWidget {
                     },
                   ),
                 ),
+
                 const SizedBox(height: 80), // Space for floating nav bar
               ],
             ),
             Positioned(
               left: 0,
               right: 0,
-              bottom: 20,
+              bottom: 8,
               child: FloatingNavBar(
                 currentIndex: 1,
                 onTap: (index) {

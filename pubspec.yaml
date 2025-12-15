@@ -31,7 +31,32 @@ dependencies:
   flutter:
     sdk: flutter
   carousel_slider: ^4.2.1
+  # UI/UX Packages (Dart 3.0 compatible)
+  flutter_svg: ^2.0.9
+  shimmer: ^3.0.0
+  badges: ^3.0.2
+  animated_text_kit: ^4.2.2
 
+  # Alternative to Lottie for Flutter 3.10
+  flare_flutter: ^3.0.2  # Works with Dart 3.0
+  # OR use rive instead
+  # rive: ^0.10.0
+
+  # Date/Time & Utilities
+  intl: ^0.19.0
+  table_calendar: ^3.0.9
+
+  # Effects & Animations
+  confetti: ^0.8.0
+
+  # Enhanced Inputs
+  flutter_colorpicker: ^1.0.3
+
+  # Icons
+  font_awesome_flutter: ^10.5.0
+
+  # State Management
+  provider: ^6.0.5
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
