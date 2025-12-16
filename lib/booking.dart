@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'models/venue.dart';
 import 'login.dart';
-import 'floating_nav_bar.dart';
-import 'ProfileGuest.dart';
-import 'SavedPageGuest.dart';
 
 class GuestBookingPage extends StatefulWidget {
   final Venue venue;
@@ -121,12 +118,12 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
             const Divider(height: 30),
 
             const Text(
-              'YOU ARE REQUIRED TO SIGN IN TO BOOK THIS VENUE',
-              style:  TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              )
+                'YOU ARE REQUIRED TO SIGN IN TO BOOK THIS VENUE',
+                style:  TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                )
             ),
 
             // Date Picker
@@ -247,67 +244,31 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Total Price
-                Text(
-                  'TOTAL: RM$totalPrice',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                // Book Button
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF102C57),
-                    padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  onPressed: () {
-                    // Show a dialog prompting the user to login
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Login Required'),
-                        content: const Text('Please login to book this venue.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context); // close dialog
-                            },
-                            child: const Text('Cancel'),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF102C57),
-                            ),
-                            onPressed: () {
-                              Navigator.pop(context); // close dialog
-                              // Navigate to your login page
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const LoginPage()), // replace with your login page
-                              );
-                            },
-                            child: const Text('Login'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  child: const Text('BOOK', style: TextStyle(fontSize: 16)),
-                ),
+                const Text('Total Price:',
+                    style:
+                    TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('RM$totalPrice',
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green)),
               ],
             ),
+            const SizedBox(height: 30),
 
+            // Book Now button
+            SizedBox( width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF102C57),
+                  padding: const EdgeInsets.symmetric(vertical: 15), ),
+                onPressed: _bookVenue,
+                child: const Text('Book Now', style: TextStyle(fontSize: 18)
+                ),
+              ),
+            ),
 
             const SizedBox(height: 50),
-
-            // Floating nav bar
-
           ],
         ),
       ),

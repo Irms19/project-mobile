@@ -36,7 +36,7 @@ class LoginPage extends StatelessWidget {
 
                 // App title
                 const Text(
-                  "Welcome Back",
+                  "Welcome",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 28,
@@ -44,7 +44,16 @@ class LoginPage extends StatelessWidget {
                   ),
                 ),
 
+                const SizedBox(height: 10),
+
+                Image.asset(
+                  'assets/AZAM.jpg',
+                  width: 150,
+                  height: 150,
+                ),
+
                 const SizedBox(height: 30),
+
 
                 // Username field
                 TextField(
@@ -89,6 +98,7 @@ class LoginPage extends StatelessWidget {
                 // Login button
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF102C57),
                     padding: const EdgeInsets.symmetric(vertical: 15),
                   ),
                   onPressed: () {
@@ -101,6 +111,25 @@ class LoginPage extends StatelessWidget {
                   child: const Text(
                     "Login",
                     style: TextStyle(fontSize: 16),
+                  ),
+                ),
+
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => GuestPage()),
+                    );
+
+                  },
+                  child: const Text(
+                    'CONTINUE AS GUEST',
+                    style: TextStyle(
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.grey,
+                      decorationStyle: TextDecorationStyle.solid, // solid, dashed, dotted, or wavy
+                      decorationThickness: 2, // Controls the thickness
+                    ),
                   ),
                 ),
 

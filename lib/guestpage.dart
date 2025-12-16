@@ -1,39 +1,56 @@
-
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'floating_nav_bar.dart';
 import 'models/venue.dart';
 import 'guestbookingpage.dart';
+import 'ProfileGuest.dart';
+import 'SavedPageGuest.dart';
+import 'models/animated_toggle.dart';
 
 
-class GuestPage extends StatelessWidget {
-  GuestPage({super.key});
+class GuestPage extends StatefulWidget {
+  const GuestPage({super.key});
 
-  // Example venue list; later, update this from admin page or backend
+  @override
+  State<GuestPage> createState() => _GuestPageState();
+}
+
+class _GuestPageState extends State<GuestPage> {
+  // Toggle state
+  List<bool> isSelected = [true, false];
+
+  // Search text
+  String searchText = '';
+
+  // Example venues
   final List<Venue> venues = [
     Venue(
       imagePath: 'assets/welcome1.jpg',
       name: 'Grand Ballroom',
       info: 'Spacious hall for weddings and events',
       price: 'RM5000',
+      type: 'EVENT HALL',
     ),
     Venue(
       imagePath: 'assets/welcome2.jpg',
       name: 'Conference Room A',
       info: 'Perfect for business meetings',
       price: 'RM1200',
+      type: 'CONFERENCE ROOM',
     ),
     Venue(
       imagePath: 'assets/welcome3.jpg',
       name: 'Outdoor Garden',
       info: 'Beautiful setting for outdoor events',
       price: 'RM3000',
+      type: 'EVENT HALL',
     ),
     Venue(
-      imagePath: 'assets/welcome3.jpg',
-      name: 'Outdoor Garden',
-      info: 'Beautiful setting for outdoor events',
-      price: 'RM3000',
+      imagePath: 'assets/welcome1.jpg',
+      name: 'Meeting Room B',
+      info: 'Small conference room for team meetings',
+      price: 'RM1000',
+      type: 'CONFERENCE ROOM',
     ),
   ];
 
@@ -51,6 +68,14 @@ class GuestPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Filter venues based on toggle & search text
+    String selectedType = isSelected[0] ? 'EVENT HALL' : 'CONFERENCE ROOM';
+    List<Venue> filteredVenues = venues
+        .where((venue) =>
+    venue.type == selectedType &&
+        venue.name.toLowerCase().contains(searchText.toLowerCase()))
+        .toList();
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -59,6 +84,7 @@ class GuestPage extends StatelessWidget {
             Column(
               children: [
                 const SizedBox(height: 20),
+                // Carousel
                 CarouselSlider.builder(
                   itemCount: welcomeImages.length,
                   itemBuilder: (context, index, realIndex) {
@@ -103,43 +129,49 @@ class GuestPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
+
+                // Search field
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: TextField(
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Search',
                       prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(15)),
                       ),
                     ),
+                    onChanged: (value) {
+                      setState(() {
+                        searchText = value;
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                // Toggle buttons
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: ToggleButtons(
-                    borderRadius: BorderRadius.circular(20),
-                    isSelected: [true, false],
-                    onPressed: (index) {},
-                    children: const [
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Text('EVENT HALLS'),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Text('CONFERENCE ROOM'),
-                      ),
-                    ],
+                  child: AnimatedToggle(
+                    labels: const ['EVENT HALLS', 'CONFERENCE ROOM'],
+                    initialIndex: 0,
+                    onToggle: (index) {
+                      setState(() {
+                        isSelected[0] = index == 0;
+                        isSelected[1] = index == 1;
+                      });
+                    },
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 30),
+
+                // Venue list
                 Expanded(
                   child: ListView.builder(
-                    itemCount: venues.length,
+                    itemCount: filteredVenues.length,
                     itemBuilder: (context, index) {
-                      final venue = venues[index];
+                      final venue = filteredVenues[index];
 
                       return InkWell(
                         borderRadius: BorderRadius.circular(15),
@@ -147,7 +179,8 @@ class GuestPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => GuestBookingPage(venue: venue),
+                              builder: (context) =>
+                                  GuestBookingPage(venue: venue),
                             ),
                           );
                         },
@@ -155,7 +188,8 @@ class GuestPage extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(15),
                           ),
-                          margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                          margin: const EdgeInsets.symmetric(
+                              vertical: 10, horizontal: 20),
                           elevation: 15,
                           child: ListTile(
                             contentPadding: const EdgeInsets.all(10),
@@ -190,10 +224,11 @@ class GuestPage extends StatelessWidget {
                     },
                   ),
                 ),
-
                 const SizedBox(height: 80), // Space for floating nav bar
               ],
             ),
+
+            // Floating nav bar
             Positioned(
               left: 0,
               right: 0,
@@ -201,7 +236,22 @@ class GuestPage extends StatelessWidget {
               child: FloatingNavBar(
                 currentIndex: 1,
                 onTap: (index) {
-                  // handle navigation
+                  switch (index) {
+                    case 0:
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SavedPageGuest()),
+                      );
+                      break;
+                    case 2:
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ProfileGuest()),
+                      );
+                      break;
+                  }
                 },
               ),
             ),
