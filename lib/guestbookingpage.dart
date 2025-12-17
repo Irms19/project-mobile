@@ -121,7 +121,7 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
             const Divider(height: 30),
 
             const Text(
-              'YOU ARE REQUIRED TO SIGN IN TO BOOK THIS VENUE',
+              'YOU ARE REQUIRED TO LOGIN IN TO BOOK THIS VENUE',
               style:  TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
