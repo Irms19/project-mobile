@@ -1,3 +1,4 @@
+import 'package:bookinghall/profilepage.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'floating_nav_bar.dart';
@@ -8,14 +9,14 @@ import 'SavedPageGuest.dart';
 import 'models/animated_toggle.dart';
 
 
-class GuestPage extends StatefulWidget {
-  const GuestPage({super.key});
+class MainPage extends StatefulWidget {
+  const MainPage ({super.key});
 
   @override
-  State<GuestPage> createState() => _GuestPageState();
+  State<MainPage> createState() => _MainPageState();
 }
 
-class _GuestPageState extends State<GuestPage> {
+class _MainPageState extends State<MainPage> {
   // Toggle state
   List<bool> isSelected = [true, false];
 
@@ -83,16 +84,6 @@ class _GuestPageState extends State<GuestPage> {
           children: [
             Column(
               children: [
-                const SizedBox(height: 20),
-                const Text(
-                    'YOU ARE REQUIRED \n TO SIGN IN TO BOOK',
-                    textAlign: TextAlign.center,
-                    style:  TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red,
-                    )
-                ),
                 const SizedBox(height: 20),
                 // Carousel
                 CarouselSlider.builder(
@@ -258,7 +249,7 @@ class _GuestPageState extends State<GuestPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const ProfileGuest()),
+                            builder: (_) => const ProfilePage()),
                       );
                       break;
                   }

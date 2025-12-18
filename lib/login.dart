@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'guestpage.dart';
+import 'mainpage.dart';
 import 'signup_page.dart';
 
 void main() {
@@ -104,7 +105,7 @@ class LoginPage extends StatelessWidget {
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => GuestPage()),
+                      MaterialPageRoute(builder: (context) => MainPage()),
                     );
 
                   },
