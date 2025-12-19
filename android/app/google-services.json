@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "201146926824",
+    "firebase_url": "https://project-mobile-78110-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "project-mobile-78110",
+    "storage_bucket": "project-mobile-78110.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:201146926824:android:20e6faa9863c3e53e0eb5d",
+        "android_client_info": {
+          "package_name": "com.example.bookinghall"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBolAw5ipE0HtOEGNn69mt1q7Ov9pfdoRY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

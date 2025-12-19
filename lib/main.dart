@@ -1,38 +1,21 @@
-
 import 'package:flutter/material.dart';
-import 'adminlogin.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'flutterfire_options.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: firebaseOptions,
+  );
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Venue Hall Booking Admin',
-      home: const AdminLoginPage(),
-    );
-  }
-}
-class AdminDashboardPage extends StatelessWidget {
-  const AdminDashboardPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        backgroundColor: Colors.black,
-      ),
-      body: const Center(
-        child: Text(
-          'Welcome Admin 👋',
-          style: TextStyle(fontSize: 22),
-        ),
+      home: Scaffold(
+        body: Center(child: Text('Firebase Initialized!')),
       ),
     );
   }
