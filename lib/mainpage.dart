@@ -5,6 +5,7 @@ import 'floating_nav_bar.dart';
 import 'models/venue.dart';
 import 'guestbookingpage.dart';
 import 'ProfileGuest.dart';
+import 'savedpage.dart';
 import 'SavedPageGuest.dart';
 import 'models/animated_toggle.dart';
 
@@ -122,7 +123,7 @@ class _MainPageState extends State<MainPage> {
                     );
                   },
                   options: CarouselOptions(
-                    height: 230,
+                    height: 130,
                     autoPlay: true,
                     autoPlayInterval: const Duration(seconds: 3),
                     enlargeCenterPage: true,
@@ -242,7 +243,7 @@ class _MainPageState extends State<MainPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const SavedPageGuest()),
+                            builder: (_) => const SavedPage()),
                       );
                       break;
                     case 2:

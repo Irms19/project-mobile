@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
+import 'savedpage.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -64,7 +65,12 @@ class ProfilePage extends StatelessWidget {
             _profileTile(
               icon: Icons.bookmark,
               title: 'My Bookings',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SavedPage()),
+                );
+              },
             ),
             _profileTile(
               icon: Icons.logout,

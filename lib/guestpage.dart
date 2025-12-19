@@ -6,6 +6,7 @@ import 'guestbookingpage.dart';
 import 'ProfileGuest.dart';
 import 'SavedPageGuest.dart';
 import 'models/animated_toggle.dart';
+import 'package:flutter/gestures.dart';
 
 
 class GuestPage extends StatefulWidget {
@@ -84,14 +85,41 @@ class _GuestPageState extends State<GuestPage> {
             Column(
               children: [
                 const SizedBox(height: 20),
-                const Text(
-                    'YOU ARE REQUIRED \n TO SIGN IN TO BOOK',
-                    textAlign: TextAlign.center,
-                    style:  TextStyle(
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    text: 'YOU ARE REQUIRED \n TO ',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.red,
-                    )
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'SIGN IN',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue, // clickable text color
+                          decoration: TextDecoration.underline, // optional
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            // Handle click here, e.g., navigate to login page
+                            print('SIGN IN clicked');
+                            // Navigator.push(context, MaterialPageRoute(builder: (_) => LoginPage()));
+                          },
+                      ),
+                      TextSpan(
+                        text: ' TO BOOK',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 20),
                 // Carousel
@@ -131,7 +159,7 @@ class _GuestPageState extends State<GuestPage> {
                     );
                   },
                   options: CarouselOptions(
-                    height: 230,
+                    height: 190,
                     autoPlay: true,
                     autoPlayInterval: const Duration(seconds: 3),
                     enlargeCenterPage: true,

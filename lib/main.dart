@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'main.dart'; // To access AdminDashboardPage
+import 'adminpage.dart'; // To access AdminDashboardPage
 
 class AdminLoginPage extends StatefulWidget {
   const AdminLoginPage({super.key});
@@ -19,7 +19,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
       // Navigate to dashboard
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const AdminPage()),
+        MaterialPageRoute(builder: (context) => const AdminDashboardPage()),
       );
     } else {
       // Show error
