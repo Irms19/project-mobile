@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'adminpage.dart';
 
 void main() {
   runApp(const MyApp());
@@ -38,7 +39,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => const AdminDashboardPage(),
+            builder: (context) => const AdminDashboardPage(),
           ),
         );
       } else {
@@ -73,10 +74,8 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Title
                   const Text(
                     "Welcome",
-                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -86,21 +85,18 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                   const SizedBox(height: 15),
 
                   // Admin Image
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 75,
                     backgroundImage:
-                    const AssetImage('assets/adminlogin.jpg'),
-                    backgroundColor: Colors.transparent,
+                    AssetImage('assets/adminlogin.jpg'),
                   ),
 
                   const SizedBox(height: 30),
 
-                  // Form
                   Form(
                     key: _formKey,
                     child: Column(
                       children: [
-                        // Email
                         TextFormField(
                           controller: emailController,
                           decoration: InputDecoration(
@@ -121,7 +117,6 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
 
                         const SizedBox(height: 18),
 
-                        // Password
                         TextFormField(
                           controller: passwordController,
                           obscureText: obscurePassword,
@@ -150,14 +145,12 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                               borderSide: BorderSide.none,
                             ),
                           ),
-                          validator: (value) => value!.isEmpty
-                              ? 'Enter password'
-                              : null,
+                          validator: (value) =>
+                          value!.isEmpty ? 'Enter password' : null,
                         ),
 
                         const SizedBox(height: 30),
 
-                        // Login Button (Dark Blue)
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -169,7 +162,6 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                                 borderRadius:
                                 BorderRadius.circular(14),
                               ),
-                              elevation: 5,
                             ),
                             onPressed: _loginAdmin,
                             child: const Text(
@@ -190,22 +182,6 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class AdminDashboardPage extends StatelessWidget {
-  const AdminDashboardPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text(
-          'Welcome Admin 👋',
-          style: TextStyle(fontSize: 22),
         ),
       ),
     );
