@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   carousel_slider: ^4.2.1
+
   # UI/UX Packages (Dart 3.0 compatible)
   flutter_svg: ^2.0.9
   shimmer: ^3.0.0
