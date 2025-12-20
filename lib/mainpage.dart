@@ -1,3 +1,4 @@
+import 'package:bookinghall/MyBookingsPage.dart';
 import 'package:bookinghall/profilepage.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -243,7 +244,7 @@ class _MainPageState extends State<MainPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const SavedPage()),
+                            builder: (_) => const MyBookingsPage()),
                       );
                       break;
                     case 2:
