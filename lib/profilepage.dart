@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
-import 'savedpage.dart';
+import 'MyBookingsPage.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -68,7 +68,7 @@ class ProfilePage extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const SavedPage()),
+                  MaterialPageRoute(builder: (context) => const MyBookingsPage()),
                 );
               },
             ),

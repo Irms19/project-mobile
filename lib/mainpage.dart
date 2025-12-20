@@ -5,7 +5,7 @@ import 'floating_nav_bar.dart';
 import 'models/venue.dart';
 import 'guestbookingpage.dart';
 import 'ProfileGuest.dart';
-import 'savedpage.dart';
+import 'bookingspage.dart';
 import 'SavedPageGuest.dart';
 import 'models/animated_toggle.dart';
 
