@@ -364,8 +364,6 @@ class _EditBookingModalState extends State<EditBookingModal> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            const Icon(Icons.waves, color: Colors.grey, size: 50),
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
