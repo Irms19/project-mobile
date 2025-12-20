@@ -1,4 +1,3 @@
-import 'package:bookinghall/MyBookingsPage.dart';
 import 'package:bookinghall/profilepage.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -6,8 +5,8 @@ import 'floating_nav_bar.dart';
 import 'models/venue.dart';
 import 'guestbookingpage.dart';
 import 'ProfileGuest.dart';
-import 'bookingspage.dart';
-import 'SavedPageGuest.dart';
+import 'MyBookingsPage.dart';
+import 'booking.dart';
 import 'models/animated_toggle.dart';
 
 
@@ -183,7 +182,7 @@ class _MainPageState extends State<MainPage> {
                             context,
                             MaterialPageRoute(
                               builder: (context) =>
-                                  GuestBookingPage(venue: venue),
+                                  BookingPage(venue: venue),
                             ),
                           );
                         },
