@@ -37,6 +37,7 @@ dependencies:
   shimmer: ^3.0.0
   badges: ^3.0.2
   animated_text_kit: ^4.2.2
+  image_picker: ^1.0.7
 
   # Alternative to Lottie for Flutter 3.10
   flare_flutter: ^3.0.2  # Works with Dart 3.0
