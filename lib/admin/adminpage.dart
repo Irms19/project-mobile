@@ -1,9 +1,13 @@
+import 'package:bookinghall/login.dart';
 import 'package:flutter/material.dart';
+import 'managehall.dart';
+import 'manageusers.dart';
+import 'adminmanagebooking.dart';
 
 class AdminDashboardPage extends StatelessWidget {
   const AdminDashboardPage({super.key});
 
-  static const Color darkBlue = Color(0xFF0D47A1);
+  static const Color darkBlue = Color(0xFF102C57);
 
   @override
   Widget build(BuildContext context) {
@@ -24,9 +28,13 @@ class AdminDashboardPage extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_outline),
+            icon: const Icon(Icons.logout),
             onPressed: () {
-              // TODO: Admin profile
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                    (route) => false,
+              );
             },
           ),
         ],
@@ -41,10 +49,9 @@ class AdminDashboardPage extends StatelessWidget {
             width: 180,
             height: 180,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(12),
               image: const DecorationImage(
-                image: AssetImage('assets/adminlogin.jpg'),
+                image: AssetImage('assets/catlogo2.jpg'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -72,19 +79,34 @@ class AdminDashboardPage extends StatelessWidget {
                 _AdminButton(
                   icon: Icons.meeting_room_outlined,
                   text: 'MANAGE HALLS',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ManageHallPage()),
+                    );
+                  },
                 ),
                 const SizedBox(height: 15),
                 _AdminButton(
                   icon: Icons.people_outline,
                   text: 'MANAGE USERS',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ManageUsersPage()),
+                    );
+                  },
                 ),
                 const SizedBox(height: 15),
                 _AdminButton(
                   icon: Icons.book_online_outlined,
                   text: 'MANAGE BOOKINGS',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AdminManageBookingPage()),
+                    );
+                  },
                 ),
               ],
             ),
@@ -94,7 +116,7 @@ class AdminDashboardPage extends StatelessWidget {
 
       // Bottom home bar
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Container(
           height: 55,
           decoration: BoxDecoration(

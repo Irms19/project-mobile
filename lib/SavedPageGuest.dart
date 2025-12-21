@@ -10,7 +10,7 @@ class SavedPageGuest extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF102C57),
-        title: const Text('Saved'),
+        title: const Text('My Bookings'),
         centerTitle: true,
       ),
       body: Center(
@@ -32,7 +32,7 @@ class SavedPageGuest extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              'Login to view your profile',
+              'Login to view your bookings',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 30),
