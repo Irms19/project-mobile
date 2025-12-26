@@ -62,7 +62,7 @@ class _GuestPageState extends State<GuestPage> {
   ];
 
   final List<String> welcomeTexts = const [
-    'Welcome to Our Venue!',
+    'Welcome to Booking Site!',
     'Book Your Event Today!',
     'Experience the Best Service!',
   ];
