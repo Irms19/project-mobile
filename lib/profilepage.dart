@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bookinghall/services/auth_service.dart'; // Import your auth service
 import 'login.dart';
 import 'MyBookingsPage.dart';
+import 'services/auth_layout.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // 1. Get the current logged-in user from Firebase Auth
+    final User? user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF102C57),
@@ -21,37 +28,55 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Profile Avatar
-           const CircleAvatar(
+            const CircleAvatar(
               radius: 50,
-             backgroundImage: AssetImage('assets/AZAM.jpg'),
-              backgroundColor: const Color(0xFF102C57),
+              backgroundImage: AssetImage('assets/AZAM.jpg'),
+              backgroundColor: Color(0xFF102C57),
             ),
 
             const SizedBox(height: 15),
 
-            // Username placeholder
-            const Text(
-              'Guest User',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            // 2. Use FutureBuilder to fetch the Username from Firestore
+            FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user?.uid)
+                  .get(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const CircularProgressIndicator(color: Color(0xFF102C57));
+                }
 
-            const SizedBox(height: 5),
+                // Default values if data isn't found
+                String displayName = "User";
+                if (snapshot.hasData && snapshot.data!.exists) {
+                  displayName = snapshot.data!['username'] ?? "User";
+                }
 
-            // Email placeholder
-            const Text(
-              'guest@example.com',
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 14,
-              ),
+                return Column(
+                  children: [
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      user?.email ?? 'No email found',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
 
             const SizedBox(height: 30),
 
-            // Placeholder options
             _profileTile(
               icon: Icons.edit,
               title: 'Edit Profile',
@@ -72,14 +97,24 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
+
+            // 3. Updated Logout to actually sign the user out
             _profileTile(
               icon: Icons.logout,
               title: 'Logout',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                );
+              onTap: () async {
+                // 1. Perform the sign out
+                await authService.value.signOut();
+
+                // 2. Clear the navigation stack and go back to the root
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => const AuthLayout(pageIfNotConnected: LoginPage()),
+                    ),
+                        (route) => false, // This removes all previous pages from memory
+                  );
+                }
               },
               isLogout: true,
             ),
