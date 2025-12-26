@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:bookinghall/services/auth_service.dart'; // Import your auth service
+import 'package:bookinghall/services/auth_service.dart';
 import 'login.dart';
 import 'MyBookingsPage.dart';
 import 'services/auth_layout.dart';
@@ -11,112 +11,68 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Get the current logged-in user from Firebase Auth
     final User? user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFBFBFB), // Premium off-white
       appBar: AppBar(
+        elevation: 0,
         backgroundColor: const Color(0xFF102C57),
-        title: const Text('Profile'),
+        title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
+      body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 20),
-
-            // Profile Avatar
-            const CircleAvatar(
-              radius: 50,
-              backgroundImage: AssetImage('assets/AZAM.jpg'),
-              backgroundColor: Color(0xFF102C57),
-            ),
-
-            const SizedBox(height: 15),
-
-            // 2. Use FutureBuilder to fetch the Username from Firestore
-            FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user?.uid)
-                  .get(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const CircularProgressIndicator(color: Color(0xFF102C57));
-                }
-
-                // Default values if data isn't found
-                String displayName = "User";
-                if (snapshot.hasData && snapshot.data!.exists) {
-                  displayName = snapshot.data!['username'] ?? "User";
-                }
-
-                return Column(
-                  children: [
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      user?.email ?? 'No email found',
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+            // --- 1. HEADER SECTION (Greeting instead of Photo) ---
+            _buildGreetingHeader(user),
 
             const SizedBox(height: 30),
 
-            _profileTile(
-              icon: Icons.edit,
-              title: 'Edit Profile',
-              onTap: () {},
-            ),
-            _profileTile(
-              icon: Icons.lock,
-              title: 'Change Password',
-              onTap: () {},
-            ),
-            _profileTile(
-              icon: Icons.bookmark,
-              title: 'My Bookings',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MyBookingsPage()),
-                );
-              },
-            ),
-
-            // 3. Updated Logout to actually sign the user out
-            _profileTile(
-              icon: Icons.logout,
-              title: 'Logout',
-              onTap: () async {
-                // 1. Perform the sign out
-                await authService.value.signOut();
-
-                // 2. Clear the navigation stack and go back to the root
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                      builder: (context) => const AuthLayout(pageIfNotConnected: LoginPage()),
-                    ),
-                        (route) => false, // This removes all previous pages from memory
-                  );
-                }
-              },
-              isLogout: true,
+            // --- 2. MENU SECTION ---
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  _profileTile(
+                    icon: Icons.person_outline_rounded,
+                    title: 'Edit Profile',
+                    onTap: () {},
+                  ),
+                  _profileTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Change Password',
+                    onTap: () {},
+                  ),
+                  _profileTile(
+                    icon: Icons.bookmark_border_rounded,
+                    title: 'My Bookings',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MyBookingsPage()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 40, thickness: 1),
+                  _profileTile(
+                    icon: Icons.logout_rounded,
+                    title: 'Logout',
+                    isLogout: true,
+                    onTap: () async {
+                      await authService.value.signOut();
+                      if (context.mounted) {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => const AuthLayout(pageIfNotConnected: LoginPage()),
+                          ),
+                              (route) => false,
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -124,26 +80,98 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  // --- Header with Text Greeting ---
+  Widget _buildGreetingHeader(User? user) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFF102C57),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
+      ),
+      // Reduced padding since there is no photo
+      padding: const EdgeInsets.only(bottom: 50, top: 30, left: 30, right: 30),
+      child: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('users').doc(user?.uid).get(),
+        builder: (context, snapshot) {
+          String displayName = "";
+          if (snapshot.hasData && snapshot.data!.exists) {
+            displayName = snapshot.data!['username'] ?? "";
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                "Hi, $displayName!",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                user?.email ?? 'No email found',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // --- Profile Menu Tile ---
   Widget _profileTile({
     required IconData icon,
     required String title,
     required VoidCallback onTap,
     bool isLogout = false,
   }) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: ListTile(
-        leading: Icon(
-          icon,
-          color: isLogout ? Colors.red : const Color(0xFF102C57),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isLogout ? Colors.red.withOpacity(0.1) : const Color(0xFF102C57).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            color: isLogout ? Colors.red : const Color(0xFF102C57),
+            size: 22,
+          ),
         ),
         title: Text(
           title,
           style: TextStyle(
-            color: isLogout ? Colors.red : Colors.black,
+            color: isLogout ? Colors.red : const Color(0xFF102C57),
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
           ),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
         onTap: onTap,
       ),
     );

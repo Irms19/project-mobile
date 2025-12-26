@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'models/venue.dart';
+import 'payment/PaymentPage.dart';
 
 class BookingPage extends StatefulWidget {
   final Venue venue;
@@ -15,25 +18,27 @@ class _BookingPageState extends State<BookingPage> {
   DateTime? selectedDate;
   int guests = 1;
   double totalPrice = 0;
+  bool isSubmitting = false;
+  bool isLoadingDates = false; // New: Prevents UI from freezing during date fetch
 
   final List<Map<String, dynamic>> addons = [
     {
       'name': 'Catering',
-      'price': 30,
+      'price': 30.0,
       'selected': false,
       'isPerGuest': true,
       'icon': Icons.restaurant
     },
     {
       'name': 'Decoration',
-      'price': 800,
+      'price': 800.0,
       'selected': false,
       'isPerGuest': false,
       'icon': Icons.celebration
     },
     {
       'name': 'Audio/Visual Equipment',
-      'price': 500,
+      'price': 500.0,
       'selected': false,
       'isPerGuest': false,
       'icon': Icons.mic_external_on
@@ -72,74 +77,121 @@ class _BookingPageState extends State<BookingPage> {
   }
 
   Future<void> _pickDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      setState(() => selectedDate = picked);
+    setState(() => isLoadingDates = true);
+
+    try {
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('venueId', isEqualTo: widget.venue.id)
+          .where('status', whereIn: ['pending', 'confirmed', 'pending_payment'])
+          .get();
+
+      // 1. Create a Set of booked date strings for fast lookup
+      Set<String> bookedDatesStrings = snapshot.docs.map((doc) {
+        DateTime date = (doc['bookingDate'] as Timestamp).toDate();
+        return "${date.year}-${date.month}-${date.day}";
+      }).toSet();
+
+      setState(() => isLoadingDates = false);
+      if (!mounted) return;
+
+      // 2. CRITICAL FIX: Find the first available date starting from tomorrow
+      DateTime firstAvailable = DateTime.now().add(const Duration(days: 1));
+      while (bookedDatesStrings.contains("${firstAvailable.year}-${firstAvailable.month}-${firstAvailable.day}")) {
+        firstAvailable = firstAvailable.add(const Duration(days: 1));
+      }
+
+      // 3. Open the picker with the safe 'firstAvailable' date
+      final DateTime? picked = await showDatePicker(
+        context: context,
+        initialDate: selectedDate ?? firstAvailable, // Safe date used here
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        selectableDayPredicate: (DateTime day) {
+          String formattedDay = "${day.year}-${day.month}-${day.day}";
+          return !bookedDatesStrings.contains(formattedDay);
+        },
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.light(primary: Color(0xFF102C57)),
+            ),
+            child: child!,
+          );
+        },
+      );
+
+      if (picked != null) {
+        setState(() => selectedDate = picked);
+      }
+    } catch (e) {
+      setState(() => isLoadingDates = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
+  // --- TRANSACTIONAL SAVE LOGIC (PREVENTS DOUBLE BOOKING) ---
+  Future<void> _saveBookingToFirestore() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || selectedDate == null) return;
 
-  // --- SUCCESS MODAL ---
-  void _showSuccessModal() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle, color: Colors.green, size: 80),
+    setState(() => isSubmitting = true);
+
+    try {
+      // Transactions ensure that if two people click at once, only one succeeds
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final existingQuery = await FirebaseFirestore.instance
+            .collection('bookings')
+            .where('venueId', isEqualTo: widget.venue.id)
+            .where('bookingDate', isEqualTo: Timestamp.fromDate(selectedDate!))
+            .where('status', whereIn: ['pending', 'confirmed', 'pending_payment'])
+            .get();
+
+        if (existingQuery.docs.isNotEmpty) {
+          throw Exception("This date was just taken by someone else!");
+        }
+
+        DocumentReference newBookingRef = FirebaseFirestore.instance.collection('bookings').doc();
+
+        List<String> selectedAddonNames = addons
+            .where((a) => a['selected'] == true)
+            .map((a) => a['name'] as String)
+            .toList();
+
+        transaction.set(newBookingRef, {
+          'userId': user.uid,
+          'venueId': widget.venue.id,
+          'venueName': widget.venue.name,
+          'venueImagePath': widget.venue.imagePath,
+          'bookingDate': Timestamp.fromDate(selectedDate!),
+          'totalPrice': totalPrice,
+          'guests': guests,
+          'addons': selectedAddonNames,
+          'status': 'pending_payment',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PaymentPage(
+                bookingId: newBookingRef.id,
+                amount: totalPrice,
               ),
-              const SizedBox(height: 20),
-              const Text(
-                "Congratulations!",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF102C57)),
-              ),
-              const SizedBox(height: 15),
-              const Text(
-                "You have successfully booked your hall. See you there!",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF102C57),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context); // Close modal
-                    // Navigate to your MyBookingsPage here
-                  },
-                  child: const Text("View Booking", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-                child: const Text("Home", style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w600, decoration: TextDecoration.underline)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+            ),
+          ).then((_) => setState(() => isSubmitting = false));
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll("Exception: ", ""))),
+        );
+      }
+    }
   }
 
   void _confirmBooking() {
@@ -156,11 +208,12 @@ class _BookingPageState extends State<BookingPage> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Edit')),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
             onPressed: () {
               Navigator.pop(context);
-              _showSuccessModal();
+              _saveBookingToFirestore();
             },
-            child: const Text('Confirm'),
+            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -209,7 +262,9 @@ class _BookingPageState extends State<BookingPage> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.calendar_today, color: Color(0xFF102C57)),
                   title: Text(selectedDate == null ? 'Select Booking Date' : DateFormat('EEEE, dd MMM yyyy').format(selectedDate!)),
-                  trailing: TextButton(onPressed: () => _pickDate(context), child: const Text('Change')),
+                  trailing: isLoadingDates
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : TextButton(onPressed: () => _pickDate(context), child: const Text('Change')),
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -241,6 +296,7 @@ class _BookingPageState extends State<BookingPage> {
               ],
             ),
           ),
+
           Positioned(
             bottom: 20, left: 20, right: 20,
             child: Material(
@@ -258,9 +314,15 @@ class _BookingPageState extends State<BookingPage> {
                       ],
                     ),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                      onPressed: _confirmBooking,
-                      child: const Text('BOOK NOW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF102C57),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12)
+                      ),
+                      onPressed: isSubmitting ? null : _confirmBooking,
+                      child: isSubmitting
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('BOOK NOW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),

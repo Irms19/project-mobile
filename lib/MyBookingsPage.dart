@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MyBookingsPage extends StatefulWidget {
   const MyBookingsPage({super.key});
@@ -9,30 +11,7 @@ class MyBookingsPage extends StatefulWidget {
 }
 
 class _MyBookingsPageState extends State<MyBookingsPage> {
-  // Mock data for bookings
-  final List<Map<String, dynamic>> bookings = [
-    {
-      'imagePath': 'assets/welcome1.jpg',
-      'venue': 'Casandra',
-      'date': '25/12/2025',
-      'status': 'Upcoming',
-      'price': 'RM5000',
-    },
-    {
-      'imagePath': 'assets/welcome1.jpg', // Replace with welcome2.jpg if available
-      'venue': 'Conference Room A',
-      'date': '10/11/2024',
-      'status': 'Completed',
-      'price': 'RM1200',
-    },
-    {
-      'imagePath': 'assets/welcome2.jpg', // Replace with welcome3.jpg if available
-      'venue': 'Outdoor Garden',
-      'date': '15/06/2024',
-      'status': 'Completed',
-      'price': 'RM7500',
-    },
-  ];
+  final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
 
   @override
   Widget build(BuildContext context) {
@@ -50,355 +29,248 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             ],
           ),
         ),
-        body: TabBarView(
+        body: currentUserId.isEmpty
+            ? const Center(child: Text("Please login to see bookings"))
+            : TabBarView(
           children: [
-            _buildBookingList('Upcoming'),
-            _buildBookingList('Completed'),
+            _buildFirestoreBookingList(['pending', 'confirmed']), // Current
+            _buildFirestoreBookingList(['completed', 'cancelled']), // History
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBookingList(String filterStatus) {
-    final filteredList =
-    bookings.where((b) => b['status'] == filterStatus).toList();
+  Widget _buildFirestoreBookingList(List<String> statuses) {
+    return StreamBuilder<QuerySnapshot>(
+      // Filter by CURRENT USER and matching STATUSES
+      stream: FirebaseFirestore.instance
+          .collection('bookings')
+          .where('userId', isEqualTo: currentUserId)
+          .where('status', whereIn: statuses)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return const Center(child: Text('Error loading bookings'));
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Color(0xFF102C57)));
+        }
 
-    if (filteredList.isEmpty) {
-      return const Center(child: Text('No bookings found.'));
-    }
+        final docs = snapshot.data!.docs;
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: filteredList.length,
-      itemBuilder: (context, index) {
-        final item = filteredList[index];
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.only(bottom: 20),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Featured Image
-              Image.asset(
-                item['imagePath'] ?? 'assets/welcome1.jpg',
-                width: double.infinity,
-                height: 160,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 160,
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.image, size: 50, color: Colors.grey),
-                ),
-              ),
+        if (docs.isEmpty) {
+          return const Center(child: Text('No bookings found.'));
+        }
 
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 2. Title & Status
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final docId = docs[index].id;
+
+            // Handle Firestore Timestamp to String
+            String formattedDate = "N/A";
+            if (data['bookingDate'] != null) {
+              DateTime dt = (data['bookingDate'] as Timestamp).toDate();
+              formattedDate = DateFormat('dd/MM/yyyy').format(dt);
+            }
+
+            return Card(
+              elevation: 2,
+              margin: const EdgeInsets.only(bottom: 20),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Featured Image (Using imagePath from Firestore)
+                  _buildVenueImage(data['venueImagePath'] ?? data['imagePath']),
+
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            item['venue'],
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        _buildStatusChip(item['status']),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // 3. Date & Price
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Text(item['date'], style: const TextStyle(color: Colors.grey)),
-                        const Spacer(),
-                        Text(
-                          item['price'],
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF102C57),
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Divider(height: 1, thickness: 1),
-                    ),
-
-                    // 4. Action Buttons
-                    if (filterStatus == 'Upcoming')
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF102C57),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20)),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                data['venueName'] ?? 'Unknown Venue',
+                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              onPressed: () => _showEditModal(item),
-                              child: const Text('Edit Booking'),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          TextButton(
-                            onPressed: () => _confirmCancel(item),
-                            style: TextButton.styleFrom(
-                                foregroundColor: Colors.redAccent),
-                            child: const Text('Cancel'),
-                          ),
-                        ],
-                      )
-                    else
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF102C57)),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          onPressed: () {},
-                          child: const Text(
-                            'Rebook Venue',
-                            style: TextStyle(
-                                color: Color(0xFF102C57),
-                                fontWeight: FontWeight.bold),
-                          ),
+                            _buildStatusChip(data['status'] ?? 'pending'),
+                          ],
                         ),
-                      ),
-                  ],
-                ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(formattedDate, style: const TextStyle(color: Colors.grey)),
+                            const Spacer(),
+                            Text(
+                              "RM${data['totalPrice'] ?? '0'}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF102C57),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Divider(height: 1, thickness: 1),
+                        ),
+
+                        // Action Buttons based on status
+                        if (data['status'] == 'pending' || data['status'] == 'confirmed')
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF102C57),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  ),
+                                  onPressed: () => _showEditModal(docId, data),
+                                  child: const Text('Edit Booking'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              TextButton(
+                                onPressed: () => _confirmCancel(docId),
+                                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          )
+                        else
+                          const SizedBox.shrink(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
+  Widget _buildVenueImage(String? path) {
+    if (path != null && path.startsWith('http')) {
+      return Image.network(path, width: double.infinity, height: 160, fit: BoxFit.cover);
+    } else {
+      return Image.asset(path ?? 'assets/welcome1.jpg', width: double.infinity, height: 160, fit: BoxFit.cover);
+    }
+  }
+
   Widget _buildStatusChip(String status) {
+    Color color;
+    switch (status.toLowerCase()) {
+      case 'confirmed': color = Colors.green; break;
+      case 'pending': color = Colors.orange; break;
+      case 'cancelled': color = Colors.red; break;
+      default: color = Colors.blue;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: status == 'Upcoming'
-            ? Colors.blue.withOpacity(0.1)
-            : Colors.green.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(status,
-          style: TextStyle(
-              color: status == 'Upcoming' ? Colors.blue : Colors.green,
-              fontSize: 12,
-              fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+      child: Text(status.toUpperCase(),
+          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
-  void _showEditModal(Map item) {
+  // Handle Cancellation in Firestore
+  void _confirmCancel(String docId) {
     showDialog(
       context: context,
-      builder: (context) => EditBookingModal(bookingData: item),
-    );
-  }
-
-  void _confirmCancel(Map item) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Cancel Booking?',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF102C57),
-                    shape: const StadiumBorder(),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Yes, cancel booking',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(height: 15),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('No, keep booking',
-                    style: TextStyle(
-                        color: Colors.black,
-                        decoration: TextDecoration.underline)),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Booking?'),
+        content: const Text('Are you sure you want to cancel this reservation?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('No')),
+          TextButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance.collection('bookings').doc(docId).update({'status': 'cancelled'});
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red)),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  void _showEditModal(String docId, Map data) {
+    showDialog(
+      context: context,
+      builder: (context) => EditBookingModal(docId: docId, bookingData: data),
     );
   }
 }
 
+// Updated Modal to save to Firestore
 class EditBookingModal extends StatefulWidget {
+  final String docId;
   final Map bookingData;
-  const EditBookingModal({super.key, required this.bookingData});
+  const EditBookingModal({super.key, required this.docId, required this.bookingData});
 
   @override
   State<EditBookingModal> createState() => _EditBookingModalState();
 }
 
 class _EditBookingModalState extends State<EditBookingModal> {
-  String? selectedHall;
   DateTime? selectedDate;
-  final List<String> halls = [
-    'Grand Ballroom',
-    'Casandra',
-    'Conference Room A',
-    'Outdoor Garden'
-  ];
 
   @override
   void initState() {
     super.initState();
-    selectedHall = widget.bookingData['venue'];
-    try {
-      selectedDate = DateFormat('dd/MM/yyyy').parse(widget.bookingData['date']);
-    } catch (e) {
-      selectedDate = DateTime.now();
+    if (widget.bookingData['bookingDate'] != null) {
+      selectedDate = (widget.bookingData['bookingDate'] as Timestamp).toDate();
     }
-  }
-
-  Future<void> _pickDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) setState(() => selectedDate = picked);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Edit your booking",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            _buildLabel("Hall Name"),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: selectedHall,
-                  isExpanded: true,
-                  items: halls
-                      .map((h) => DropdownMenuItem(value: h, child: Text(h)))
-                      .toList(),
-                  onChanged: (val) => setState(() => selectedHall = val),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildLabel("Date"),
-            GestureDetector(
-              onTap: _pickDate,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.white,
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      selectedDate == null
-                          ? "Select Date"
-                          : DateFormat('dd/MM/yyyy').format(selectedDate!),
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text("Calendar",
-                        style: TextStyle(fontSize: 16, color: Colors.grey)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF102C57),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
-                ),
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Update Booking",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Back",
-                  style: TextStyle(
-                      color: Colors.black, decoration: TextDecoration.underline)),
-            ),
-          ],
+    return AlertDialog(
+      title: const Text("Edit Date"),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text("Current: ${DateFormat('dd/MM/yyyy').format(selectedDate!)}"),
+          ElevatedButton(
+            onPressed: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: selectedDate!,
+                firstDate: DateTime.now(),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (picked != null) setState(() => selectedDate = picked);
+            },
+            child: const Text("Pick New Date"),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        ElevatedButton(
+          onPressed: () async {
+            await FirebaseFirestore.instance.collection('bookings').doc(widget.docId).update({
+              'bookingDate': Timestamp.fromDate(selectedDate!),
+            });
+            if (mounted) Navigator.pop(context);
+          },
+          child: const Text("Save"),
         ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text,
-            style: const TextStyle(color: Colors.grey, fontSize: 13)),
-      ),
+      ],
     );
   }
 }

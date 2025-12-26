@@ -170,7 +170,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
                   const SizedBox(height: 30),
 
-                  // Sign Up Button - Matching the Dark Blue Login Style
+                  // Sign Up Button
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF102C57),
