@@ -15,7 +15,6 @@ class _ManageHallPageState extends State<ManageHallPage> {
   final Color primaryNavy = const Color(0xFF102C57);
   final Color accentGold = const Color(0xFFE1AA74);
 
-  // List of Venue Types for the Dropdown
   final List<String> _venueTypes = ['CONFERENCE ROOM', 'EVENT HALL'];
 
   @override
