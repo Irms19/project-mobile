@@ -5,6 +5,8 @@ import 'package:bookinghall/services/auth_service.dart';
 import 'login.dart';
 import 'MyBookingsPage.dart';
 import 'services/auth_layout.dart';
+import 'services/ChangePasswordPage.dart';
+import 'package:bookinghall/EditProfilePage.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -13,75 +15,107 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final User? user = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFFBFBFB), // Premium off-white
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: const Color(0xFF102C57),
-        title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // --- 1. HEADER SECTION (Greeting instead of Photo) ---
-            _buildGreetingHeader(user),
+    return StreamBuilder<DocumentSnapshot>(
+      // We listen to the user's document in real-time
+        stream: FirebaseFirestore.instance.collection('users').doc(user?.uid).snapshots(),
+        builder: (context, snapshot) {
+          // Show a loader if data is still fetching
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
 
-            const SizedBox(height: 30),
+          // Get the data map
+          Map<String, dynamic> userData = {};
+          if (snapshot.hasData && snapshot.data!.exists) {
+            userData = snapshot.data!.data() as Map<String, dynamic>;
+          }
 
-            // --- 2. MENU SECTION ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+          String displayName = userData['username'] ?? userData['name'] ?? "User";
+
+          return Scaffold(
+            backgroundColor: const Color(0xFFFBFBFB),
+            appBar: AppBar(
+              elevation: 0,
+              backgroundColor: const Color(0xFF102C57),
+              title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+              centerTitle: true,
+            ),
+            body: SingleChildScrollView(
               child: Column(
                 children: [
-                  _profileTile(
-                    icon: Icons.person_outline_rounded,
-                    title: 'Edit Profile',
-                    onTap: () {},
-                  ),
-                  _profileTile(
-                    icon: Icons.lock_outline_rounded,
-                    title: 'Change Password',
-                    onTap: () {},
-                  ),
-                  _profileTile(
-                    icon: Icons.bookmark_border_rounded,
-                    title: 'My Bookings',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const MyBookingsPage()),
-                      );
-                    },
-                  ),
-                  const Divider(height: 40, thickness: 1),
-                  _profileTile(
-                    icon: Icons.logout_rounded,
-                    title: 'Logout',
-                    isLogout: true,
-                    onTap: () async {
-                      await authService.value.signOut();
-                      if (context.mounted) {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => const AuthLayout(pageIfNotConnected: LoginPage()),
-                          ),
-                              (route) => false,
-                        );
-                      }
-                    },
+                  // --- 1. HEADER SECTION ---
+                  _buildGreetingHeader(displayName, user?.email),
+
+                  const SizedBox(height: 30),
+
+                  // --- 2. MENU SECTION ---
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        _profileTile(
+                          icon: Icons.person_outline_rounded,
+                          title: 'Edit Profile',
+                          onTap: () {
+                            // NOW IT WORKS: Passing the userData we got from the Stream
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditProfilePage(userData: userData),
+                              ),
+                            );
+                          },
+                        ),
+                        _profileTile(
+                          icon: Icons.lock_outline_rounded,
+                          title: 'Change Password',
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const ChangePasswordPage())
+                            );
+                          },
+                        ),
+                        _profileTile(
+                          icon: Icons.bookmark_border_rounded,
+                          title: 'My Bookings',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const MyBookingsPage()),
+                            );
+                          },
+                        ),
+                        const Divider(height: 40, thickness: 1),
+                        _profileTile(
+                          icon: Icons.logout_rounded,
+                          title: 'Logout',
+                          isLogout: true,
+                          onTap: () async {
+                            await authService.value.signOut();
+                            if (context.mounted) {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (context) => const AuthLayout(pageIfNotConnected: LoginPage()),
+                                ),
+                                    (route) => false,
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }
     );
   }
 
-  // --- Header with Text Greeting ---
-  Widget _buildGreetingHeader(User? user) {
+  // --- Header logic simplified because data is passed in ---
+  Widget _buildGreetingHeader(String name, String? email) {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -91,45 +125,33 @@ class ProfilePage extends StatelessWidget {
           bottomRight: Radius.circular(40),
         ),
       ),
-      // Reduced padding since there is no photo
       padding: const EdgeInsets.only(bottom: 50, top: 30, left: 30, right: 30),
-      child: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('users').doc(user?.uid).get(),
-        builder: (context, snapshot) {
-          String displayName = "";
-          if (snapshot.hasData && snapshot.data!.exists) {
-            displayName = snapshot.data!['username'] ?? "";
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                "Hi, $displayName!",
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                user?.email ?? 'No email found',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            "Hi, $name!",
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            email ?? 'No email found',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 15,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // --- Profile Menu Tile ---
   Widget _profileTile({
     required IconData icon,
     required String title,
@@ -157,11 +179,7 @@ class ProfilePage extends StatelessWidget {
             color: isLogout ? Colors.red.withOpacity(0.1) : const Color(0xFF102C57).withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            icon,
-            color: isLogout ? Colors.red : const Color(0xFF102C57),
-            size: 22,
-          ),
+          child: Icon(icon, color: isLogout ? Colors.red : const Color(0xFF102C57), size: 22),
         ),
         title: Text(
           title,

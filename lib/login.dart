@@ -4,6 +4,7 @@ import 'package:bookinghall/services/auth_service.dart';
 import 'package:bookinghall/services/auth_layout.dart';
 import 'guestpage.dart';
 import 'signup_page.dart';
+import 'services/resetPassword.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -22,7 +23,6 @@ class _LoginPageState extends State<LoginPage> {
 
   // Login Logic
   void login() async {
-    // Hide keyboard
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -31,36 +31,44 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // Use .trim() to prevent errors caused by accidental spaces
       await authService.value.signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // IMPORTANT:
-      // We do NOT use Navigator.push here.
-      // The AuthLayout sitting in your main.dart will see the login success
-      // and automatically replace this screen with the MainPage.
+      // SUCCESS LOGIC:
+      if (mounted) {
+        // This clears the stack (GuestPage & LoginPage) and restarts at AuthLayout
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AuthLayout(pageIfNotConnected: LoginPage()),
+          ),
+              (route) => false,
+        );
+      }
 
     } on FirebaseAuthException catch (e) {
       setState(() {
-        // Translate Firebase error codes into friendly messages
-        if (e.code == 'user-not-found') {
-          errorMessage = 'No user found for that email.';
+        if (e.code == 'invalid-credential') {
+          errorMessage = 'Invalid email or password. Please try again.';
+        } else if (e.code == 'user-not-found') {
+          errorMessage = 'No account exists with this email.';
         } else if (e.code == 'wrong-password') {
-          errorMessage = 'Wrong password provided.';
+          errorMessage = 'Incorrect password.';
+        } else if (e.code == 'user-disabled') {
+          errorMessage = 'This account has been disabled.';
+        } else if (e.code == 'too-many-requests') {
+          errorMessage = 'Too many failed attempts. Please try again later.';
         } else {
-          errorMessage = e.message ?? 'Login failed';
+          // Fallback for any other technical error
+          errorMessage = 'Login failed. Please check your credentials.';
         }
       });
     } catch (e) {
-      setState(() {
-        errorMessage = 'An unexpected error occurred. Please try again.';
-      });
+      setState(() => errorMessage = 'An unexpected error occurred.');
     } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -92,7 +100,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Wrap image in Hero or simple container for layout consistency
+
                   Image.asset(
                     'assets/catlogo2.jpg',
                     width: 150,
@@ -154,7 +162,10 @@ class _LoginPageState extends State<LoginPage> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        // TODO: Implement forgot password logic
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const resetPasswordPage())
+                        );
                       },
                       child: const Text("Forgot Password?"),
                     ),

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter/gestures.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'floating_nav_bar.dart';
 import 'models/venue.dart';
 import 'guestbookingpage.dart';
 import 'ProfileGuest.dart';
 import 'SavedPageGuest.dart';
+import 'login.dart';
 import 'models/animated_toggle.dart';
-import 'package:flutter/gestures.dart';
-
 
 class GuestPage extends StatefulWidget {
   const GuestPage({super.key});
@@ -17,280 +18,263 @@ class GuestPage extends StatefulWidget {
 }
 
 class _GuestPageState extends State<GuestPage> {
-  // Toggle state
-  List<bool> isSelected = [true, false];
-
-  // Search text
+  int selectedIndex = 0;
   String searchText = '';
-
-  // Example venues
-  final List<Venue> venues = [
-    Venue(
-      imagePath: 'assets/welcome1.jpg',
-      name: 'Grand Ballroom',
-      info: 'Spacious hall for weddings and events',
-      price: 'RM5000',
-      type: 'EVENT HALL',
-    ),
-    Venue(
-      imagePath: 'assets/welcome2.jpg',
-      name: 'Conference Room A',
-      info: 'Perfect for business meetings',
-      price: 'RM1200',
-      type: 'CONFERENCE ROOM',
-    ),
-    Venue(
-      imagePath: 'assets/welcome3.jpg',
-      name: 'Outdoor Garden',
-      info: 'Beautiful setting for outdoor events',
-      price: 'RM3000',
-      type: 'EVENT HALL',
-    ),
-    Venue(
-      imagePath: 'assets/welcome1.jpg',
-      name: 'Meeting Room B',
-      info: 'Small conference room for team meetings',
-      price: 'RM1000',
-      type: 'CONFERENCE ROOM',
-    ),
-  ];
 
   final List<String> welcomeImages = const [
     'assets/welcome1.jpg',
     'assets/welcome2.jpg',
-    'assets/welcome3.jpg',
+    'assets/welcome3.jpg'
   ];
 
   final List<String> welcomeTexts = const [
-    'Welcome to Booking Site!',
+    'Welcome to Our Site!',
     'Book Your Event Today!',
-    'Experience the Best Service!',
+    'The Best Service!'
   ];
 
   @override
   Widget build(BuildContext context) {
-    // Filter venues based on toggle & search text
-    String selectedType = isSelected[0] ? 'EVENT HALL' : 'CONFERENCE ROOM';
-    List<Venue> filteredVenues = venues
-        .where((venue) =>
-    venue.type == selectedType &&
-        venue.name.toLowerCase().contains(searchText.toLowerCase()))
-        .toList();
+    // Determine the type string to filter by based on toggle
+    String selectedType = selectedIndex == 0 ? 'EVENT HALL' : 'CONFERENCE ROOM';
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFBFBFB),
       body: SafeArea(
         child: Stack(
           children: [
             Column(
               children: [
-                const SizedBox(height: 20),
-                RichText(
-                  textAlign: TextAlign.center,
-                  text: TextSpan(
-                    text: 'YOU ARE REQUIRED \n TO ',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: 'SIGN IN',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue, // clickable text color
-                          decoration: TextDecoration.underline, // optional
-                        ),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            // Handle click here, e.g., navigate to login page
-                            print('SIGN IN clicked');
-                            // Navigator.push(context, MaterialPageRoute(builder: (_) => LoginPage()));
-                          },
-                      ),
-                      TextSpan(
-                        text: ' TO BOOK',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Carousel
-                CarouselSlider.builder(
-                  itemCount: welcomeImages.length,
-                  itemBuilder: (context, index, realIndex) {
-                    return Stack(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.symmetric(horizontal: 5),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(15),
-                            image: DecorationImage(
-                              image: AssetImage(welcomeImages[index]),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 20,
-                          left: 20,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            color: Colors.black.withOpacity(0.5),
-                            child: Text(
-                              welcomeTexts[index],
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                  options: CarouselOptions(
-                    height: 190,
-                    autoPlay: true,
-                    autoPlayInterval: const Duration(seconds: 3),
-                    enlargeCenterPage: true,
-                    viewportFraction: 0.9,
-                  ),
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 15),
+                // --- SIGN IN WARNING ---
+                _buildSignInWarning(),
 
-                // Search field
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Search',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(15)),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        searchText = value;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 15),
+                // --- PREMIUM CAROUSEL ---
+                _buildCarousel(),
 
-                // Toggle buttons
+                // --- MODERN SEARCH ---
+                _buildSearchBar(),
+
+                // --- TOGGLE ---
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: AnimatedToggle(
-                    labels: const ['EVENT HALLS', 'CONFERENCE ROOM'],
+                    labels: const ['EVENT HALLS', 'CONFERENCE'],
                     initialIndex: 0,
                     onToggle: (index) {
                       setState(() {
-                        isSelected[0] = index == 0;
-                        isSelected[1] = index == 1;
+                        selectedIndex = index;
                       });
                     },
                   ),
                 ),
-                const SizedBox(height: 30),
 
-                // Venue list
+                // --- FIREBASE VENUE LIST ---
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: filteredVenues.length,
-                    itemBuilder: (context, index) {
-                      final venue = filteredVenues[index];
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('venues').snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return const Center(child: Text("Error loading data"));
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(15),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  GuestBookingPage(venue: venue),
-                            ),
+                      // Convert Firestore docs to Venue objects and filter locally
+                      final docs = snapshot.data!.docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final name = (data['name'] ?? '').toString().toLowerCase();
+                        final type = (data['type'] ?? '').toString();
+
+                        return type == selectedType && name.contains(searchText.toLowerCase());
+                      }).toList();
+
+                      if (docs.isEmpty) {
+                        return const Center(
+                          child: Text("No venues found in this category."),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: docs.length,
+                        padding: const EdgeInsets.only(top: 10, bottom: 100),
+                        itemBuilder: (context, index) {
+                          final data = docs[index].data() as Map<String, dynamic>;
+
+                          // Creating Venue object from Firebase data
+                          final venue = Venue(
+                            name: data['name'] ?? 'No Name',
+                            imagePath: data['imagePath'] ?? 'assets/welcome1.jpg',
+                            info: data['info'] ?? 'No description available',
+                            price: data['price'] ?? '0',
+                            type: data['type'] ?? '',
                           );
+
+                          return _GuestVenueCard(venue: venue);
                         },
-                        child: Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 10, horizontal: 20),
-                          elevation: 15,
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(10),
-                            leading: ClipRRect(
-                              borderRadius: BorderRadius.circular(5),
-                              child: Image.asset(
-                                venue.imagePath,
-                                width: 100,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            title: Text(
-                              venue.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            subtitle: Text(venue.info),
-                            trailing: Text(
-                              venue.price,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                        ),
                       );
                     },
                   ),
                 ),
-                const SizedBox(height: 80), // Space for floating nav bar
               ],
             ),
 
-            // Floating nav bar
+            // --- NAVIGATION ---
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 8,
+              left: 0, right: 0, bottom: 10,
               child: FloatingNavBar(
                 currentIndex: 1,
                 onTap: (index) {
-                  switch (index) {
-                    case 0:
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SavedPageGuest()),
-                      );
-                      break;
-                    case 2:
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const ProfileGuest()),
-                      );
-                      break;
+                  if (index == 0) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedPageGuest()));
+                  }
+                  if (index == 2) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileGuest()));
                   }
                 },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGET COMPONENTS ---
+
+  Widget _buildSignInWarning() {
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        text: 'YOU ARE REQUIRED TO ',
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.redAccent),
+        children: [
+          TextSpan(
+            text: 'SIGN IN',
+            style: const TextStyle(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+                fontWeight: FontWeight.bold
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
+                // FIXED: Use pushReplacement to clean up the stack
+                Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage())
+                );
+              },
+          ),
+          const TextSpan(text: ' TO BOOK A VENUE'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCarousel() {
+    return CarouselSlider.builder(
+      itemCount: welcomeImages.length,
+      itemBuilder: (context, index, realIndex) => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          image: DecorationImage(
+              image: AssetImage(welcomeImages[index]),
+              fit: BoxFit.cover
+          ),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                colors: [Colors.black.withOpacity(0.7), Colors.transparent]
+            ),
+          ),
+          padding: const EdgeInsets.all(15),
+          alignment: Alignment.bottomLeft,
+          child: Text(
+              welcomeTexts[index],
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+          ),
+        ),
+      ),
+      options: CarouselOptions(
+          height: 150,
+          autoPlay: true,
+          enlargeCenterPage: true,
+          viewportFraction: 0.9
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      child: TextField(
+        onChanged: (v) => setState(() => searchText = v),
+        decoration: InputDecoration(
+          hintText: 'Search venues...',
+          prefixIcon: const Icon(Icons.search, color: Color(0xFF102C57)),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide.none
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- MODERN CARD FOR GUESTS ---
+class _GuestVenueCard extends StatelessWidget {
+  final Venue venue;
+  const _GuestVenueCard({required this.venue});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 5)
+          )
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => GuestBookingPage(venue: venue))
+          );
+        },
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: Image.asset(
+                  venue.imagePath,
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover
+              ),
+            ),
+            ListTile(
+              title: Text(venue.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(venue.info, maxLines: 1, overflow: TextOverflow.ellipsis),
+              trailing: Text(
+                  venue.price,
+                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)
               ),
             ),
           ],

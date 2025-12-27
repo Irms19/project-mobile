@@ -26,16 +26,16 @@ class AuthService {
     required String password,
     required String username,
   }) async {
-    // 1. Create the Auth account
+
     UserCredential credential = await firebaseAuth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
 
-    // 2. THIS creates the "users" collection and the document automatically
+
     await FirebaseFirestore.instance
         .collection('users')
-        .doc(credential.user!.uid) // Use the UID as the document name
+        .doc(credential.user!.uid)
         .set({
       'username': username,
       'email': email,

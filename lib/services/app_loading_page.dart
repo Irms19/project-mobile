@@ -6,47 +6,29 @@ class AppLoadingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Matches your SignUpPage
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Your App Logo or a Booking Icon
-            Container(
-              height: 100,
-              width: 100,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.calendar_today_rounded, // Booking related icon
-                size: 50,
-                color: Colors.black,
-              ),
+            // Your Cat Logo
+            Image.asset(
+              'assets/catlogo2.jpg',
+              width: 120, // Adjusted size for a nice loading look
+              height: 120,
+              errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.pets, size: 50), // Fallback if image fails
             ),
-            const SizedBox(height: 24),
 
-            // Modern Circular Progress Indicator
+            const SizedBox(height: 30),
+
+            // Simple Buffer (Progress Indicator)
             const SizedBox(
-              width: 40,
-              height: 40,
+              width: 30,
+              height: 30,
               child: CircularProgressIndicator(
-                color: Colors.black,
+                color: Color(0xFF102C57), // Using your app's primary blue
                 strokeWidth: 3,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Loading Text
-            Text(
-              "BookingHall",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-                letterSpacing: 1.2,
               ),
             ),
           ],
