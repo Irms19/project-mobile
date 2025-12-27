@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'adminpage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'adminpage.dart'; // Ensure this matches your AdminDashboardPage file name
 
 class ManageUsersPage extends StatefulWidget {
   const ManageUsersPage({super.key});
@@ -10,76 +11,108 @@ class ManageUsersPage extends StatefulWidget {
 
 class _ManageUsersPageState extends State<ManageUsersPage> {
   final Color primaryColor = const Color(0xFF102C57);
-
-  List<Map<String, String>> users = [
-    {
-      'name': 'AZAM',
-      'email': 'azam@email.com',
-      'phone': '012-346789',
-      'image': 'assets/AZAM.jpg',
-    }
-  ];
+  String searchQuery = "";
 
   // --- EDIT USER DIALOG ---
-  void _editUser(int index) {
-    final nameController = TextEditingController(text: users[index]['name']);
-    final emailController = TextEditingController(text: users[index]['email']);
-    final phoneController = TextEditingController(text: users[index]['phone']);
+  void _editUser(String docId, Map<String, dynamic> userData) {
+    final nameController = TextEditingController(text: userData['username'] ?? '');
+
+    // --- CHANGE 1: Use a controller for Email to show it clearly ---
+    final emailController = TextEditingController(text: userData['email'] ?? '');
+
+    String rawRole = (userData['role'] ?? 'user').toString().toLowerCase();
+    String selectedRole = (rawRole == 'admin' || rawRole == 'user') ? rawRole : 'user';
 
     showDialog(
       context: context,
       builder: (context) {
-        return AnimatedPadding(
-          padding: MediaQuery.of(context).viewInsets,
-          duration: const Duration(milliseconds: 100),
-          child: AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Edit User',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildEditField(nameController, 'Name'),
-                  _buildEditField(emailController, 'Email'),
-                  _buildEditField(phoneController, 'Phone No'),
-                  const SizedBox(height: 25),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AnimatedPadding(
+              padding: MediaQuery.of(context).viewInsets,
+              duration: const Duration(milliseconds: 100),
+              child: AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Edit User', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor)),
+                      const SizedBox(height: 25),
 
-                  // Update User Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      // 1. USERNAME
+                      _buildEditField(nameController, 'Username'),
+                      const SizedBox(height: 15),
+
+                      // 2. EMAIL (The Fix)
+                      TextField(
+                        controller: emailController,
+                        readOnly: true, // User can't type, but can see/copy the text
+                        decoration: InputDecoration(
+                          labelText: 'Email Address',
+                          labelStyle: const TextStyle(color: Colors.grey),
+                          filled: true,
+                          fillColor: Colors.grey[100], // Soft grey background
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          // This ensures the text inside is dark and readable
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                        ),
+                        style: const TextStyle(color: Colors.black54),
                       ),
-                      onPressed: () {
-                        setState(() {
-                          users[index] = {
-                            'name': nameController.text,
-                            'email': emailController.text,
-                            'phone': phoneController.text,
-                            'image': users[index]['image']!,
-                          };
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Update User', style: TextStyle(color: Colors.white, fontSize: 16)),
-                    ),
-                  ),
+                      const SizedBox(height: 15),
 
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Back', style: TextStyle(color: Colors.grey)),
+                      // 3. ROLE (Dropdown)
+                      DropdownButtonFormField<String>(
+                        value: selectedRole,
+                        decoration: InputDecoration(
+                          labelText: 'Role',
+                          labelStyle: TextStyle(color: primaryColor),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'user', child: Text('Customer')),
+                          DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                        ],
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setDialogState(() => selectedRole = newValue);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 25),
+
+                      // UPDATE BUTTON
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () async {
+                            await FirebaseFirestore.instance.collection('users').doc(docId).update({
+                              'username': nameController.text.trim(),
+                              'role': selectedRole,
+                            });
+                            if (mounted) Navigator.pop(context);
+                          },
+                          child: const Text('Update User', style: TextStyle(color: Colors.white, fontSize: 16)),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Back', style: TextStyle(color: Colors.grey)),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -87,7 +120,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
 
   Widget _buildEditField(TextEditingController controller, String label) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 0.0),
       child: TextField(
         controller: controller,
         decoration: InputDecoration(
@@ -122,14 +155,15 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Replaced triple boxes with a single clean search bar
+            // --- SEARCH BAR ---
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
               ),
               child: TextField(
+                onChanged: (value) => setState(() => searchQuery = value.toLowerCase()),
                 decoration: InputDecoration(
                   hintText: 'Search users...',
                   prefixIcon: Icon(Icons.search, color: primaryColor),
@@ -140,57 +174,88 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
             ),
             const SizedBox(height: 30),
 
-            // The User Card
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Padding(
-                padding: const EdgeInsets.all(15),
-                child: Row(
-                  children: [
-                    // Profile Image
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: primaryColor, width: 2),
-                      ),
-                      child: CircleAvatar(
-                        radius: 35,
-                        backgroundColor: Colors.white,
-                        backgroundImage: AssetImage(users[0]['image']!),
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    // Details Section
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(users[0]['name']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 2),
-                          Text(users[0]['email']!, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                          Text(users[0]['phone']!, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                    // Edit Button
-                    IconButton(
-                      icon: Icon(Icons.edit, color: primaryColor),
-                      onPressed: () => _editUser(0),
-                    ),
-                  ],
-                ),
+            // --- USER LIST (REAL-TIME STREAM) ---
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('users').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(child: Text("No users found."));
+                  }
+
+                  var filteredDocs = snapshot.data!.docs.where((doc) {
+                    String name = (doc['username'] ?? "").toString().toLowerCase();
+                    return name.contains(searchQuery);
+                  }).toList();
+
+                  return ListView.builder(
+                    itemCount: filteredDocs.length,
+                    itemBuilder: (context, index) {
+                      var userData = filteredDocs[index].data() as Map<String, dynamic>;
+                      String docId = filteredDocs[index].id;
+
+                      return Card(
+                        elevation: 4,
+                        margin: const EdgeInsets.only(bottom: 15),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Row(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: primaryColor, width: 2),
+                                ),
+                                child: CircleAvatar(
+                                  radius: 35,
+                                  backgroundColor: Colors.grey[200],
+                                  child: Text(
+                                    userData['username']?[0].toUpperCase() ?? "U",
+                                    style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(userData['username'] ?? "No Name",
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    const SizedBox(height: 2),
+                                    Text(userData['email'] ?? "No Email",
+                                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                                    Text(
+                                      "Role: ${userData['role'] ?? 'user'}",
+                                      style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.edit, color: primaryColor),
+                                onPressed: () => _editUser(docId, userData),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
-
-      // Home Bottom Navigation
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: InkWell(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardPage())),
+          onTap: () => Navigator.pop(context),
           borderRadius: BorderRadius.circular(30),
           child: Container(
             height: 55,

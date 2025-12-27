@@ -34,7 +34,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             : TabBarView(
           children: [
             _buildFirestoreBookingList(['pending', 'confirmed']), // Current
-            _buildFirestoreBookingList(['completed', 'cancelled']), // History
+            _buildFirestoreBookingList(['completed', 'cancelled', 'Rejected']), // History
           ],
         ),
       ),
