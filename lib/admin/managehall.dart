@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'adminpage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ManageHallPage extends StatefulWidget {
   const ManageHallPage({super.key});
@@ -9,296 +11,263 @@ class ManageHallPage extends StatefulWidget {
 }
 
 class _ManageHallPageState extends State<ManageHallPage> {
-  final List<Map<String, dynamic>> halls = [
-    {
-      'name': 'Casandra Hall',
-      'location': 'Kuala Lumpur',
-      'price': 'RM5000',
-      'desc': 'A luxury hall for weddings and big events.',
-      'image': 'assets/welcome1.jpg',
-    },
-    {
-      'name': 'Conference Room A',
-      'location': 'Kuala Lumpur',
-      'price': 'RM1200',
-      'desc': 'A luxury hall for weddings and big events.',
-      'image': 'assets/welcome2.jpg',
-    },
-  ];
+  final ImagePicker _picker = ImagePicker();
+  final Color primaryNavy = const Color(0xFF102C57);
+  final Color accentGold = const Color(0xFFE1AA74);
 
-  // Logic to handle Delete
-  void _deleteHall(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Hall'),
-        content: Text('Delete "${halls[index]['name']}"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              setState(() => halls.removeAt(index));
-              Navigator.pop(context);
+  // List of Venue Types for the Dropdown
+  final List<String> _venueTypes = ['CONFERENCE ROOM', 'EVENT HALL'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF1F5F9),
+      appBar: AppBar(
+        title: const Text('Manage Halls',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: 1.2)),
+        backgroundColor: primaryNavy,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('venues').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return const Center(child: Text("Error loading venues"));
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("No venues found. Click + to add one."));
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            itemCount: snapshot.data!.docs.length,
+            itemBuilder: (context, index) {
+              final data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+              final id = snapshot.data!.docs[index].id;
+              return _buildHallCard(data, id);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showVenueForm(),
+        backgroundColor: primaryNavy,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text("NEW HALL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildHallCard(Map<String, dynamic> data, String id) {
+    final String imgPath = data['imagePath']?.toString() ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+                child: _displayImage(imgPath, 180),
+              ),
+              Positioned(
+                top: 12, right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: primaryNavy, borderRadius: BorderRadius.circular(20)),
+                  child: Text(data['price'] ?? 'RM 0',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ),
+            ],
           ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(data['type'] ?? 'VENUE',
+                    style: TextStyle(color: accentGold, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.1)),
+                const SizedBox(height: 4),
+                Text(data['name'] ?? 'Unnamed Venue',
+                    style: TextStyle(color: primaryNavy, fontWeight: FontWeight.w900, fontSize: 20)),
+                const SizedBox(height: 8),
+                Text(data['info'] ?? 'No description provided.',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.4)),
+                const SizedBox(height: 15),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _iconBtn(Icons.edit_note, Colors.blue, () => _showVenueForm(docId: id, existingData: data)),
+                    const SizedBox(width: 8),
+                    _iconBtn(Icons.delete_sweep, Colors.red, () => _confirmDelete(id)),
+                  ],
+                ),
+              ],
+            ),
+          )
         ],
       ),
     );
   }
 
-  // --- UPDATED EDIT/ADD FORM ---
-  void _showHallForm({int? index}) {
-    final bool isEditing = index != null;
+  Widget _iconBtn(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+        child: Icon(icon, color: color, size: 22),
+      ),
+    );
+  }
 
-    final nameController = TextEditingController(text: isEditing ? halls[index]['name'] : '');
-    final locationController = TextEditingController(text: isEditing ? (halls[index]['location'] ?? '') : '');
-    final priceController = TextEditingController(text: isEditing ? halls[index]['price'].replaceAll('RM', '') : '');
-    final descController = TextEditingController(text: isEditing ? (halls[index]['desc'] ?? '') : '');
+  void _showVenueForm({String? docId, Map<String, dynamic>? existingData}) {
+    final nameCtrl = TextEditingController(text: existingData?['name'] ?? '');
+    final priceCtrl = TextEditingController(text: existingData?['price']?.toString().replaceAll('RM', '').trim() ?? '');
+    final infoCtrl = TextEditingController(text: existingData?['info'] ?? '');
+    String selectedType = existingData?['type'] ?? _venueTypes[0];
+    String currentPath = existingData?['imagePath'] ?? '';
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) {
-        // Using Padding + MediaQuery to handle the keyboard manually since showDialog
-        // doesn't support isScrollControlled.
-        return AnimatedPadding(
-          padding: MediaQuery.of(context).viewInsets,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.decelerate,
-          child: AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Text(
-                      isEditing ? 'Edit Hall' : 'Add Hall',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF102C57)),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildLabel('Hall Name'),
-                  _buildTextField(nameController, 'Enter hall name'),
-                  _buildLabel('Location'),
-                  _buildTextField(locationController, 'Enter location'),
-                  _buildLabel('Price'),
-                  _buildTextField(priceController, 'Enter price', isNumber: true),
-                  _buildLabel('Desc'),
-                  _buildTextField(descController, 'Enter description', isLongText: true),
-                  const SizedBox(height: 20),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 25, right: 25, top: 25),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+                const SizedBox(height: 20),
+                Text(docId == null ? "Add Venue" : "Edit Venue", style: TextStyle(color: primaryNavy, fontSize: 22, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 20),
 
-                  // Update Hall Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF102C57),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () {
-                        if (nameController.text.isNotEmpty) {
-                          setState(() {
-                            final newData = {
-                              'name': nameController.text,
-                              'location': locationController.text,
-                              'price': 'RM${priceController.text}',
-                              'desc': descController.text,
-                              'image': isEditing ? halls[index]['image'] : 'assets/welcome1.jpg',
-                            };
-                            if (isEditing) halls[index] = newData; else halls.add(newData);
-                          });
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: Text(isEditing ? 'Update Hall' : 'Add Hall', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                // DROPDOWN
+                const Text("Venue Category", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(12)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedType,
+                      isExpanded: true,
+                      items: _venueTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      onChanged: (val) => setModalState(() => selectedType = val!),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                ),
 
-                  // Back Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.grey),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Back', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                    ),
+                const SizedBox(height: 15),
+                _formField(nameCtrl, "Venue Name", Icons.business),
+                _formField(priceCtrl, "Price (RM)", Icons.payments, isNumeric: true),
+                _formField(infoCtrl, "Description", Icons.info_outline, maxLines: 3),
+
+                const SizedBox(height: 15),
+                if (currentPath.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: ClipRRect(borderRadius: BorderRadius.circular(15), child: _displayImage(currentPath, 120)),
                   ),
-                ],
-              ),
+
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await _picker.pickImage(source: ImageSource.gallery);
+                    if (picked != null) setModalState(() => currentPath = picked.path);
+                  },
+                  icon: const Icon(Icons.add_a_photo),
+                  label: const Text("Select Cover Photo"),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                ),
+
+                const SizedBox(height: 25),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryNavy,
+                      minimumSize: const Size(double.infinity, 55),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                  ),
+                  onPressed: () async {
+                    if (nameCtrl.text.isEmpty || priceCtrl.text.isEmpty) return;
+                    final payload = {
+                      'name': nameCtrl.text,
+                      'type': selectedType,
+                      'price': 'RM ${priceCtrl.text}',
+                      'info': infoCtrl.text,
+                      'imagePath': currentPath,
+                    };
+                    docId == null
+                        ? await FirebaseFirestore.instance.collection('venues').add(payload)
+                        : await FirebaseFirestore.instance.collection('venues').doc(docId).update(payload);
+                    if (mounted) Navigator.pop(context);
+                  },
+                  child: const Text("SAVE CHANGES", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
           ),
-        );
-      },
-    );
-  }
-
-  // Helper for Labels
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5, top: 10),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-    );
-  }
-
-  // Helper for Input Fields
-  Widget _buildTextField(TextEditingController controller, String hint, {bool isNumber = false, bool isLongText = false}) {
-    return TextField(
-      controller: controller,
-      maxLines: isLongText ? 3 : 1,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.grey[100],
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Halls'),
-        backgroundColor: const Color(0xFF102C57),
-        centerTitle: true,
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF102C57),
-        onPressed: () => _showHallForm(),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: GridView.builder(
-          itemCount: halls.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            // Increased ratio (0.8) makes the card shorter so there's no empty gap
-            childAspectRatio: 0.8,
-          ),
-          itemBuilder: (context, index) {
-            final hall = halls[index];
-            return Card(
-              elevation: 4,
-              margin: EdgeInsets.zero, // Remove extra margin
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Image - Occupies fixed percentage of card
-                  Expanded(
-                    flex: 5,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Image.asset(
-                        hall['image'],
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-
-                  // Content Section
-                  Expanded(
-                    flex: 6,
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Spreads content evenly
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                hall['name'],
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  const Icon(Icons.location_on, size: 12, color: Colors.grey),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      hall['location'] ?? 'No Location',
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-
-                          // Price and Action Buttons at the bottom
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                hall['price'],
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  InkWell(
-                                    onTap: () => _showHallForm(index: index),
-                                    child: const Icon(Icons.edit, size: 18, color: Colors.blue),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  InkWell(
-                                    onTap: () => _deleteHall(index),
-                                    child: const Icon(Icons.delete, size: 18, color: Colors.red),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  Widget _buildBottomNav() {
+  Widget _formField(TextEditingController ctrl, String label, IconData icon, {bool isNumeric = false, int maxLines = 1}) {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardPage())),
-        borderRadius: BorderRadius.circular(30),
-        child: Container(
-          height: 55,
-          decoration: BoxDecoration(color: const Color(0xFF102C57), borderRadius: BorderRadius.circular(30)),
-          child: const Icon(Icons.home, color: Colors.white, size: 28),
+      padding: const EdgeInsets.only(bottom: 15),
+      child: TextField(
+        controller: ctrl,
+        maxLines: maxLines,
+        keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, size: 20),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
         ),
+      ),
+    );
+  }
+
+  Widget _displayImage(String path, double h) {
+    if (path.isEmpty) return _fallbackImg(h);
+    try {
+      if (path.startsWith('assets/')) return Image.asset(path, height: h, width: double.infinity, fit: BoxFit.cover);
+      File file = File(path);
+      if (file.existsSync()) return Image.file(file, height: h, width: double.infinity, fit: BoxFit.cover);
+    } catch (_) {}
+    return _fallbackImg(h);
+  }
+
+  Widget _fallbackImg(double h) => Container(height: h, width: double.infinity, color: Colors.grey[200], child: const Icon(Icons.image, size: 40, color: Colors.grey));
+
+  void _confirmDelete(String id) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Delete Venue?"),
+        content: const Text("Are you sure you want to remove this hall from the system?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+          TextButton(onPressed: () {
+            FirebaseFirestore.instance.collection('venues').doc(id).delete();
+            Navigator.pop(context);
+          }, child: const Text("DELETE", style: TextStyle(color: Colors.red))),
+        ],
       ),
     );
   }

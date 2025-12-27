@@ -1,5 +1,5 @@
-import 'package:bookinghall/login.dart';
 import 'package:flutter/material.dart';
+import 'package:bookinghall/login.dart';
 import 'managehall.dart';
 import 'manageusers.dart';
 import 'adminmanagebooking.dart';
@@ -8,128 +8,108 @@ class AdminDashboardPage extends StatelessWidget {
   const AdminDashboardPage({super.key});
 
   static const Color darkBlue = Color(0xFF102C57);
+  static const Color accentGold = Color(0xFFE1AA74);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-
-      // Top AppBar
+      backgroundColor: const Color(0xFFF8FAFC), // Brighter, cleaner background
       appBar: AppBar(
         backgroundColor: darkBlue,
         elevation: 0,
         title: const Text(
-          'ADMIN',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
+          'ADMIN PANEL',
+          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 18),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-                    (route) => false,
-              );
-            },
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            onPressed: () => _handleLogout(context),
           ),
         ],
       ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 40),
 
-      body: Column(
-        children: [
-          const SizedBox(height: 30),
-
-          // Image placeholder
-          Container(
-            width: 180,
-            height: 180,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              image: const DecorationImage(
-                image: AssetImage('assets/catlogo2.jpg'),
-                fit: BoxFit.cover,
+            // Profile / Logo Section
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(color: darkBlue.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10)),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(100),
+                  child: Image.asset(
+                    'assets/catlogo2.jpg',
+                    width: 150,
+                    height: 150,
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 30),
-
-          // Action buttons container
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 25),
-            margin: const EdgeInsets.symmetric(horizontal: 30),
-            decoration: BoxDecoration(
-              color: darkBlue,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: darkBlue.withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+            const SizedBox(height: 20),
+            const Text(
+              "Welcome Back, Administrator",
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500, fontSize: 14),
             ),
-            child: Column(
-              children: [
-                _AdminButton(
-                  icon: Icons.meeting_room_outlined,
-                  text: 'MANAGE HALLS',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ManageHallPage()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 15),
-                _AdminButton(
-                  icon: Icons.people_outline,
-                  text: 'MANAGE USERS',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ManageUsersPage()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 15),
-                _AdminButton(
-                  icon: Icons.book_online_outlined,
-                  text: 'MANAGE BOOKINGS',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AdminManageBookingPage()),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+            const SizedBox(height: 35),
 
-      // Bottom home bar
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Container(
-          height: 55,
-          decoration: BoxDecoration(
-            color: darkBlue,
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: const Icon(
-            Icons.home,
-            color: Colors.white,
-            size: 28,
-          ),
+            // Action Card
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 25),
+              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+              decoration: BoxDecoration(
+                color: darkBlue,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(color: darkBlue.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _AdminButton(
+                    icon: Icons.storefront_outlined,
+                    text: 'MANAGE HALLS',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageHallPage())),
+                  ),
+                  const SizedBox(height: 16),
+                  _AdminButton(
+                    icon: Icons.group_add_outlined,
+                    text: 'MANAGE USERS',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageUsersPage())),
+                  ),
+                  const SizedBox(height: 16),
+                  _AdminButton(
+                    icon: Icons.calendar_today_outlined,
+                    text: 'MANAGE BOOKINGS',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminManageBookingPage())),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
         ),
       ),
+    );
+  }
+
+
+  void _handleLogout(BuildContext context) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false,
     );
   }
 }
@@ -139,37 +119,26 @@ class _AdminButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
 
-  const _AdminButton({
-    required this.icon,
-    required this.text,
-    required this.onTap,
-  });
+  const _AdminButton({required this.icon, required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: SizedBox(
-        width: double.infinity,
-        height: 45,
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: const Color(0xFF0D47A1),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          icon: Icon(icon),
-          label: Text(
-            text,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
-          onPressed: onTap,
+    return SizedBox(
+      width: double.infinity,
+      height: 55, // Slightly taller for better touch target
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: AdminDashboardPage.darkBlue,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
+        icon: Icon(icon, size: 22),
+        label: Text(
+          text,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.8),
+        ),
+        onPressed: onTap,
       ),
     );
   }
