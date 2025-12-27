@@ -23,7 +23,7 @@ class _ManageHallPageState extends State<ManageHallPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: const Text('Manage Halls',
+        title: const Text('Manage Halls & Room',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: 1.2)),
         backgroundColor: primaryNavy,
         elevation: 0,
