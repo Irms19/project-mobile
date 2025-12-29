@@ -312,6 +312,22 @@ class _ManageHallPageState extends State<ManageHallPage> {
         return Image.asset(path, height: h, width: double.infinity, fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => _fallbackImg(h));
       }
+
+        // 1. Check for Web URL (NEW)
+        if (path.startsWith('http')) {
+          return Image.network(
+            path,
+            height: h,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _fallbackImg(h),
+            // Adding a loading builder makes it more user-friendly
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(child: CircularProgressIndicator(value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null));
+            },
+          );
+        }
       File file = File(path);
       if (file.existsSync()) {
         return Image.file(file, height: h, width: double.infinity, fit: BoxFit.cover,
