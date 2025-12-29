@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'models/venue.dart';
 import 'login.dart';
 
@@ -14,63 +16,153 @@ class GuestBookingPage extends StatefulWidget {
 
 class _GuestBookingPageState extends State<GuestBookingPage> {
   DateTime? selectedDate;
-
-  // Add-ons options
-  final List<Map<String, dynamic>> addons = [
-    {'name': 'Catering', 'price': 1500, 'selected': false, 'quantity': 1},
-    {'name': 'Decoration', 'price': 800, 'selected': false, 'quantity': 1},
-    {'name': 'Audio/Visual Equipment', 'price': 500, 'selected': false, 'quantity': 1},
-  ];
-
-  int guests = 1; // number of guests
+  int guests = 1;
   double totalPrice = 0;
+  bool isSubmitting = false;
+  bool isLoadingDates = false; // New: Prevents UI from freezing during date fetch
+
+  final List<Map<String, dynamic>> addons = [
+    {
+      'name': 'Catering',
+      'price': 30.0,
+      'selected': false,
+      'isPerGuest': true,
+      'icon': Icons.restaurant
+    },
+    {
+      'name': 'Decoration',
+      'price': 800.0,
+      'selected': false,
+      'isPerGuest': false,
+      'icon': Icons.celebration
+    },
+    {
+      'name': 'Audio/Visual Equipment',
+      'price': 500.0,
+      'selected': false,
+      'isPerGuest': false,
+      'icon': Icons.mic_external_on
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    totalPrice = _calculateTotal();
+    _refreshTotal();
+  }
+
+  void _refreshTotal() {
+    setState(() {
+      totalPrice = _calculateTotal();
+    });
   }
 
   double _calculateTotal() {
-    double venuePrice = double.tryParse(widget.venue.price.replaceAll('RM', '')) ?? 0;
-    double addonsPrice = 0;
-    for (var addon in addons) {
-      if (addon['selected'] == true) {
-        addonsPrice += addon['price'] * addon['quantity'];
+    try {
+      String cleanedPrice = widget.venue.price.replaceAll(RegExp(r'[^0-9.]'), '');
+      double venuePrice = double.tryParse(cleanedPrice) ?? 0.0;
+
+      double addonsPrice = 0;
+      for (var addon in addons) {
+        if (addon['selected'] == true) {
+          addonsPrice += addon['isPerGuest']
+              ? (addon['price'] * guests)
+              : (addon['price'] as num).toDouble();
+        }
       }
+      return venuePrice + addonsPrice;
+    } catch (e) {
+      return 0.0;
     }
-    return venuePrice + addonsPrice;
   }
 
   Future<void> _pickDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      setState(() {
-        selectedDate = picked;
-      });
+    setState(() => isLoadingDates = true);
+
+    try {
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('venueId', isEqualTo: widget.venue.id)
+          .where('status', whereIn: ['pending', 'confirmed', 'pending_payment'])
+          .get();
+
+      // 1. Create a Set of booked date strings for fast lookup
+      Set<String> bookedDatesStrings = snapshot.docs.map((doc) {
+        DateTime date = (doc['bookingDate'] as Timestamp).toDate();
+        return "${date.year}-${date.month}-${date.day}";
+      }).toSet();
+
+      setState(() => isLoadingDates = false);
+      if (!mounted) return;
+
+      // 2. CRITICAL FIX: Find the first available date starting from tomorrow
+      DateTime firstAvailable = DateTime.now().add(const Duration(days: 1));
+      while (bookedDatesStrings.contains("${firstAvailable.year}-${firstAvailable.month}-${firstAvailable.day}")) {
+        firstAvailable = firstAvailable.add(const Duration(days: 1));
+      }
+
+      // 3. Open the picker with the safe 'firstAvailable' date
+      final DateTime? picked = await showDatePicker(
+        context: context,
+        initialDate: selectedDate ?? firstAvailable, // Safe date used here
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        selectableDayPredicate: (DateTime day) {
+          String formattedDay = "${day.year}-${day.month}-${day.day}";
+          return !bookedDatesStrings.contains(formattedDay);
+        },
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.light(primary: Color(0xFF102C57)),
+            ),
+            child: child!,
+          );
+        },
+      );
+
+      if (picked != null) {
+        setState(() => selectedDate = picked);
+      }
+    } catch (e) {
+      setState(() => isLoadingDates = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
 
-  void _bookVenue() {
+  void _confirmBooking() {
     if (selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a date')));
       return;
     }
 
-    String formattedDate = DateFormat('dd/MM/yyyy').format(selectedDate!);
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Login Required'),
+                  content: const Text('Please login to book this venue.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const LoginPage()),
+                        );
+                      },
+                      child: const Text('Login'),
+                    ),
+                  ],
+                ),
+              );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Booked ${widget.venue.name} on $formattedDate for $guests guest(s)'),
-      ),
-    );
   }
 
   @override
@@ -79,201 +171,120 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF102C57),
         title: Text(widget.venue.name),
+        elevation: 0,
       ),
       body: Stack(
         children: [
-          // Scrollable content
           SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Venue Image
                 ClipRRect(
                   borderRadius: BorderRadius.circular(15),
-                  child: Image.asset(
+                  child: // Replace Image.asset with this:
+                  widget.venue.imagePath.startsWith('http')
+                      ? Image.network(
                     widget.venue.imagePath,
                     width: double.infinity,
-                    height: 200,
+                    height: 220,
                     fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
+                  )
+                      : Image.asset(
+                    widget.venue.imagePath,
+                    width: double.infinity,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Venue Name & Info
-                Text(widget.venue.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                Text(widget.venue.info),
-                const SizedBox(height: 10),
-                Text(widget.venue.price, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                const Divider(height: 30),
-
-                const Text(
-                  'YOU ARE REQUIRED TO LOGIN TO BOOK THIS VENUE',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
-                ),
-                const SizedBox(height: 20),
-
-                // Date Picker
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      selectedDate == null
-                          ? 'Select Date'
-                          : 'Date: ${DateFormat('dd/MM/yyyy').format(selectedDate!)}',
-                      style: const TextStyle(fontSize: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.venue.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(widget.venue.info, style: TextStyle(color: Colors.grey[600])),
+                        ],
+                      ),
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
-                      onPressed: () => _pickDate(context),
-                      child: const Text('Choose Date'),
-                    ),
+                    Text(widget.venue.price, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF102C57))),
                   ],
                 ),
-                const SizedBox(height: 20),
-
-                // Number of Guests
+                const Divider(height: 40),
+                const Text('Booking Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_today, color: Color(0xFF102C57)),
+                  title: Text(selectedDate == null ? 'Select Booking Date' : DateFormat('EEEE, dd MMM yyyy').format(selectedDate!)),
+                  trailing: isLoadingDates
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : TextButton(onPressed: () => _pickDate(context), child: const Text('Change')),
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Number of Guests:', style: TextStyle(fontSize: 16)),
+                    const Text('Number of Guests', style: TextStyle(fontSize: 16)),
                     Row(
                       children: [
-                        IconButton(
-                            onPressed: () {
-                              if (guests > 1) setState(() => guests--);
-                            },
-                            icon: const Icon(Icons.remove)),
-                        Text(guests.toString(), style: const TextStyle(fontSize: 16)),
-                        IconButton(onPressed: () => setState(() => guests++), icon: const Icon(Icons.add)),
+                        IconButton(onPressed: () { if (guests > 1) { setState(() => guests--); _refreshTotal(); } }, icon: const Icon(Icons.remove_circle_outline)),
+                        Text('$guests', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        IconButton(onPressed: () { setState(() => guests++); _refreshTotal(); }, icon: const Icon(Icons.add_circle_outline)),
                       ],
-                    ),
+                    )
                   ],
                 ),
                 const SizedBox(height: 20),
-
-                // Add-ons
-                const Text('Add-ons:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                Column(
-                  children: addons.map((addon) {
-                    int index = addons.indexOf(addon);
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: addon['selected'],
-                              onChanged: (value) {
-                                setState(() {
-                                  addons[index]['selected'] = value!;
-                                  totalPrice = _calculateTotal();
-                                });
-                              },
-                            ),
-                            Text(addon['name']),
-                          ],
-                        ),
-                        if (addon['selected'])
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove),
-                                onPressed: () {
-                                  if (addon['quantity'] > 1) {
-                                    setState(() {
-                                      addons[index]['quantity']--;
-                                      totalPrice = _calculateTotal();
-                                    });
-                                  }
-                                },
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text('${addon['quantity']}', style: const TextStyle(color: Colors.white)),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add),
-                                onPressed: () {
-                                  setState(() {
-                                    addons[index]['quantity']++;
-                                    totalPrice = _calculateTotal();
-                                  });
-                                },
-                              ),
-                              const SizedBox(width: 10),
-                              Text('RM${addon['price'] * addon['quantity']}'),
-                            ],
-                          )
-                      ],
-                    );
-                  }).toList(),
-                ),
-
-                const SizedBox(height: 100), // extra padding to avoid being hidden by floating bar
+                const Text('Optional Services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ...addons.asMap().entries.map((entry) {
+                  int idx = entry.key;
+                  var addon = entry.value;
+                  return CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: const Color(0xFF102C57),
+                    title: Text(addon['name']),
+                    subtitle: Text(addon['isPerGuest'] ? 'RM ${addon['price']} × $guests' : 'RM ${addon['price']} flat'),
+                    value: addon['selected'],
+                    onChanged: (val) { setState(() { addons[idx]['selected'] = val!; _refreshTotal(); }); },
+                  );
+                }).toList(),
               ],
             ),
           ),
 
-          // Floating Total & Book Button
           Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
+            bottom: 20, left: 20, right: 20,
             child: Material(
-              elevation: 8,
-              borderRadius: BorderRadius.circular(20),
-              color: Colors.white,
+              elevation: 12, borderRadius: BorderRadius.circular(25), color: Colors.white,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Total Price
-                    Text('TOTAL: RM$totalPrice',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-
-                    // Book Button
+                    Column(
+                      mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('TOTAL PRICE', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                        Text('RM${totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                      ],
+                    ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF102C57),
-                        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          backgroundColor: const Color(0xFF102C57),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12)
                       ),
-                      onPressed: () {
-                        // Show login dialog
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Login Required'),
-                            content: const Text('Please login to book this venue.'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Cancel'),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                                  );
-                                },
-                                child: const Text('Login'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      child: const Text('BOOK', style: TextStyle(fontSize: 16)),
+                      onPressed: isSubmitting ? null : _confirmBooking,
+                      child: isSubmitting
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('BOOK NOW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
