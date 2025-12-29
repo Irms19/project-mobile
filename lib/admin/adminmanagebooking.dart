@@ -56,7 +56,7 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
                   // Tab 1: Logic - Action required
                   _buildFirestoreList(['pending', 'pending_payment', 'Upcoming']),
                   // Tab 2: Logic - Archive/History
-                  _buildFirestoreList(['confirmed', 'cancelled', 'Approved', 'rejected']),
+                  _buildFirestoreList(['confirmed', 'cancelled', 'Approved', 'Rejected']),
                 ],
               ),
             ),
@@ -260,39 +260,97 @@ class EditBookingModal extends StatefulWidget {
 class _EditBookingModalState extends State<EditBookingModal> {
   late TextEditingController venueController;
   late TextEditingController priceController;
+  late String selectedStatus;
+
+  // Define the available statuses for the Admin
+  final List<String> statusOptions = ['pending', 'confirmed', 'cancelled', 'Rejected'];
 
   @override
   void initState() {
     super.initState();
     venueController = TextEditingController(text: (widget.bookingData['venueName'] ?? '').toString());
     priceController = TextEditingController(text: (widget.bookingData['totalPrice'] ?? '').toString());
+
+    // Set initial status, ensuring it matches one of our options
+    String currentStatus = widget.bookingData['status'] ?? 'pending';
+    selectedStatus = statusOptions.contains(currentStatus) ? currentStatus : 'pending';
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text("Edit Booking Info", style: TextStyle(fontWeight: FontWeight.bold)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(controller: venueController, decoration: const InputDecoration(labelText: "Venue Name")),
-          const SizedBox(height: 10),
-          TextField(controller: priceController, decoration: const InputDecoration(labelText: "Price (RM)")),
-        ],
+      title: const Text("Update Booking", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF102C57))),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Booking Details", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: venueController,
+              decoration: InputDecoration(
+                labelText: "Venue Name",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: priceController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: "Total Price (RM)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text("Booking Status", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const SizedBox(height: 8),
+            // STATUS DROPDOWN
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: selectedStatus,
+                  isExpanded: true,
+                  items: statusOptions.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value.toUpperCase(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    setState(() {
+                      selectedStatus = newValue!;
+                    });
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF102C57),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
           onPressed: () async {
             await FirebaseFirestore.instance.collection('bookings').doc(widget.docId).update({
               'venueName': venueController.text,
               'totalPrice': priceController.text,
+              'status': selectedStatus, // Saves the new status
             });
             if (mounted) Navigator.pop(context);
           },
-          child: const Text("Save", style: TextStyle(color: Colors.white)),
+          child: const Text("SAVE CHANGES", style: TextStyle(color: Colors.white)),
         )
       ],
     );
