@@ -56,7 +56,7 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
                   // Tab 1: Logic - Action required
                   _buildFirestoreList(['pending', 'pending_payment', 'Upcoming']),
                   // Tab 2: Logic - Archive/History
-                  _buildFirestoreList(['confirmed', 'cancelled', 'Approved', 'Rejected']),
+                  _buildFirestoreList(['confirmed', 'cancelled', 'Approved', 'rejected']),
                 ],
               ),
             ),

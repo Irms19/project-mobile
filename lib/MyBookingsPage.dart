@@ -34,7 +34,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             : TabBarView(
           children: [
             _buildFirestoreBookingList(['pending', 'confirmed']), // Current
-            _buildFirestoreBookingList(['completed', 'cancelled', 'Rejected']), // History
+            _buildFirestoreBookingList(['completed', 'cancelled', 'rejected']), // History
           ],
         ),
       ),
@@ -176,6 +176,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     switch (status.toLowerCase()) {
       case 'confirmed': color = Colors.green; break;
       case 'pending': color = Colors.orange; break;
+      case 'rejected': color = Colors.red; break;
       case 'cancelled': color = Colors.red; break;
       default: color = Colors.blue;
     }

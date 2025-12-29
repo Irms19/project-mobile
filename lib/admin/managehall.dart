@@ -15,44 +15,107 @@ class _ManageHallPageState extends State<ManageHallPage> {
   final Color primaryNavy = const Color(0xFF102C57);
   final Color accentGold = const Color(0xFFE1AA74);
 
+  // Configuration for Dropdown and Filters
   final List<String> _venueTypes = ['CONFERENCE ROOM', 'EVENT HALL'];
+  String _selectedFilter = 'ALL';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: const Text('Manage Halls & Room',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: 1.2)),
+        title: const Text('MANAGE HALLS & ROOMS',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 1.2)),
         backgroundColor: primaryNavy,
         elevation: 0,
         centerTitle: true,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('venues').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return const Center(child: Text("Error loading venues"));
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No venues found. Click + to add one."));
-          }
+      body: Column(
+        children: [
+          _buildFilterBar(), // Horizontal categories
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('venues').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) return const Center(child: Text("Error loading venues"));
+                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              final data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-              final id = snapshot.data!.docs[index].id;
-              return _buildHallCard(data, id);
-            },
-          );
-        },
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text("No venues found."));
+                }
+
+                // Logic: Filter documents locally based on the selected chip
+                final allDocs = snapshot.data!.docs;
+                final filteredDocs = allDocs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  if (_selectedFilter == 'ALL') return true;
+                  return data['type'] == _selectedFilter;
+                }).toList();
+
+                if (filteredDocs.isEmpty) {
+                  return Center(child: Text("No $_selectedFilter available."));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  itemCount: filteredDocs.length,
+                  itemBuilder: (context, index) {
+                    final data = filteredDocs[index].data() as Map<String, dynamic>;
+                    final id = filteredDocs[index].id;
+                    return _buildHallCard(data, id);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showVenueForm(),
         backgroundColor: primaryNavy,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("NEW HALL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text("NEW VENUE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  // --- UI COMPONENTS ---
+
+  Widget _buildFilterBar() {
+    List<String> filters = ['ALL', ..._venueTypes];
+    return Container(
+      height: 70,
+      padding: const EdgeInsets.symmetric(vertical: 15),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: filters.length,
+        itemBuilder: (context, index) {
+          bool isSelected = _selectedFilter == filters[index];
+          return GestureDetector(
+            onTap: () => setState(() => _selectedFilter = filters[index]),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 25),
+              decoration: BoxDecoration(
+                color: isSelected ? primaryNavy : Colors.white,
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: isSelected ? primaryNavy : Colors.grey[300]!),
+                boxShadow: isSelected ? [BoxShadow(color: primaryNavy.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
+              ),
+              child: Center(
+                child: Text(
+                  filters[index],
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : primaryNavy,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -118,6 +181,8 @@ class _ManageHallPageState extends State<ManageHallPage> {
     );
   }
 
+  // --- HELPERS & DIALOGS ---
+
   Widget _iconBtn(IconData icon, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -154,7 +219,6 @@ class _ManageHallPageState extends State<ManageHallPage> {
                 Text(docId == null ? "Add Venue" : "Edit Venue", style: TextStyle(color: primaryNavy, fontSize: 22, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 20),
 
-                // DROPDOWN
                 const Text("Venue Category", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(height: 8),
                 Container(
@@ -178,8 +242,8 @@ class _ManageHallPageState extends State<ManageHallPage> {
                 const SizedBox(height: 15),
                 if (currentPath.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: ClipRRect(borderRadius: BorderRadius.circular(15), child: _displayImage(currentPath, 120)),
+                    padding: const EdgeInsets.only(bottom: 15),
+                    child: ClipRRect(borderRadius: BorderRadius.circular(15), child: _displayImage(currentPath, 140)),
                   ),
 
                 OutlinedButton.icon(
@@ -244,14 +308,24 @@ class _ManageHallPageState extends State<ManageHallPage> {
   Widget _displayImage(String path, double h) {
     if (path.isEmpty) return _fallbackImg(h);
     try {
-      if (path.startsWith('assets/')) return Image.asset(path, height: h, width: double.infinity, fit: BoxFit.cover);
+      if (path.startsWith('assets/')) {
+        return Image.asset(path, height: h, width: double.infinity, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _fallbackImg(h));
+      }
       File file = File(path);
-      if (file.existsSync()) return Image.file(file, height: h, width: double.infinity, fit: BoxFit.cover);
+      if (file.existsSync()) {
+        return Image.file(file, height: h, width: double.infinity, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _fallbackImg(h));
+      }
     } catch (_) {}
     return _fallbackImg(h);
   }
 
-  Widget _fallbackImg(double h) => Container(height: h, width: double.infinity, color: Colors.grey[200], child: const Icon(Icons.image, size: 40, color: Colors.grey));
+  Widget _fallbackImg(double h) => Container(
+      height: h, width: double.infinity,
+      color: Colors.grey[200],
+      child: const Icon(Icons.image_not_supported, size: 40, color: Colors.grey)
+  );
 
   void _confirmDelete(String id) {
     showDialog(
