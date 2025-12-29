@@ -237,7 +237,24 @@ class _BookingPageState extends State<BookingPage> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(15),
-                  child: Image.asset(widget.venue.imagePath, width: double.infinity, height: 220, fit: BoxFit.cover),
+                  child: // Replace Image.asset with this:
+                  widget.venue.imagePath.startsWith('http')
+                      ? Image.network(
+                        widget.venue.imagePath,
+                        width: double.infinity,
+                        height: 220,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
+                  )
+                      : Image.asset(
+                        widget.venue.imagePath,
+                        width: double.infinity,
+                        height: 220,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Row(
