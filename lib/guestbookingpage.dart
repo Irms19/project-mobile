@@ -185,21 +185,21 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
                   child: // Replace Image.asset with this:
                   widget.venue.imagePath.startsWith('http')
                       ? Image.network(
-                    widget.venue.imagePath,
-                    width: double.infinity,
-                    height: 220,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
+                        widget.venue.imagePath,
+                        width: double.infinity,
+                        height: 220,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
                   )
                       : Image.asset(
-                    widget.venue.imagePath,
-                    width: double.infinity,
-                    height: 220,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
-                  ),
+                        widget.venue.imagePath,
+                        width: double.infinity,
+                        height: 220,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
+                      ),
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -219,6 +219,11 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
                   ],
                 ),
                 const Divider(height: 40),
+                const Text(
+                  'YOU ARE REQUIRED TO LOGIN TO BOOK THIS VENUE',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
+                ),
+                const SizedBox(height: 20),
                 const Text('Booking Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
