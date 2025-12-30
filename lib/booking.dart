@@ -21,7 +21,6 @@ class _BookingPageState extends State<BookingPage> {
   bool isSubmitting = false;
   bool isLoadingDates = false;
 
-  // Controller for the guest input field
   late TextEditingController _guestController;
 
   final List<Map<String, dynamic>> addons = [
@@ -75,7 +74,6 @@ class _BookingPageState extends State<BookingPage> {
       double addonsPrice = 0;
       for (var addon in addons) {
         if (addon['selected'] == true) {
-          // If guests is 0 (while typing), we treat it as 0 for calculation
           addonsPrice += addon['isPerGuest']
               ? (addon['price'] * guests)
               : (addon['price'] as num).toDouble();
@@ -122,7 +120,7 @@ class _BookingPageState extends State<BookingPage> {
         builder: (context, child) {
           return Theme(
             data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.light(primary: Color(0xFF102C57)),
+              colorScheme: const ColorScheme.light(primary: const Color(0xFF102C57)),
             ),
             child: child!,
           );
@@ -140,13 +138,107 @@ class _BookingPageState extends State<BookingPage> {
     }
   }
 
+  void _confirmBooking() {
+    if (selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a date')));
+      return;
+    }
+    if (guests < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter number of guests')));
+      return;
+    }
+
+    String cleanedPrice = widget.venue.price.replaceAll(RegExp(r'[^0-9.]'), '');
+    double venueBasePrice = double.tryParse(cleanedPrice) ?? 0.0;
+
+    List<Widget> receiptItems = [
+      Text('Venue: ${widget.venue.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      Text('Base Price: RM${venueBasePrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      const SizedBox(height: 10),
+      Text('Date: ${DateFormat('EEEE, dd MMM yyyy').format(selectedDate!)}'),
+      Text('Total Guests: $guests'),
+      const Divider(height: 30),
+      const Text('Price Breakdown:', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF102C57))),
+      const SizedBox(height: 10),
+    ];
+
+    bool hasAddons = false;
+    for (var addon in addons) {
+      if (addon['selected'] == true) {
+        hasAddons = true;
+        double unitPrice = (addon['price'] as num).toDouble();
+        double subtotal = addon['isPerGuest'] ? (unitPrice * guests) : unitPrice;
+
+        receiptItems.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(addon['name'], style: const TextStyle(fontSize: 14)),
+                    Text('RM${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                Text(
+                  addon['isPerGuest']
+                      ? 'RM${unitPrice.toStringAsFixed(2)} × $guests guests'
+                      : 'Fixed Rate',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    if (!hasAddons) {
+      receiptItems.add(const Text('No optional services selected', style: TextStyle(fontSize: 13, color: Colors.grey)));
+    }
+
+    receiptItems.addAll([
+      const SizedBox(height: 10),
+      const Divider(thickness: 2),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('TOTAL AMOUNT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            'RM${totalPrice.toStringAsFixed(2)}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.green),
+          ),
+        ],
+      ),
+    ]);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Booking Summary'),
+        content: SingleChildScrollView(
+          child: ListBody(children: receiptItems),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Edit')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
+            onPressed: () {
+              Navigator.pop(context);
+              _saveBookingToFirestore();
+            },
+            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _saveBookingToFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || selectedDate == null) return;
-    if (guests < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter at least 1 guest')));
-      return;
-    }
 
     setState(() => isSubmitting = true);
 
@@ -205,36 +297,6 @@ class _BookingPageState extends State<BookingPage> {
     }
   }
 
-  void _confirmBooking() {
-    if (selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a date')));
-      return;
-    }
-    if (guests < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter number of guests')));
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Booking'),
-        content: Text('Venue: ${widget.venue.name}\nDate: ${DateFormat('dd/MM/yyyy').format(selectedDate!)}\nGuests: $guests\nTotal: RM${totalPrice.toStringAsFixed(2)}'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Edit')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
-            onPressed: () {
-              Navigator.pop(context);
-              _saveBookingToFirestore();
-            },
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -284,21 +346,21 @@ class _BookingPageState extends State<BookingPage> {
                         ],
                       ),
                     ),
-                    Text(widget.venue.price, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF102C57))),
+                    Text(widget.venue.price, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF102C57))),
                   ],
                 ),
                 const Divider(height: 40),
                 const Text('Booking Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.calendar_today, color: Color(0xFF102C57)),
+                  leading: const Icon(Icons.calendar_today, color: const Color(0xFF102C57)),
                   title: Text(selectedDate == null ? 'Select Booking Date' : DateFormat('EEEE, dd MMM yyyy').format(selectedDate!)),
                   trailing: isLoadingDates
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : TextButton(onPressed: () => _pickDate(context), child: const Text('Change')),
                 ),
 
-                // --- MODIFIED GUEST INPUT SECTION ---
+                // --- GUEST INPUT ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -317,7 +379,6 @@ class _BookingPageState extends State<BookingPage> {
                         ),
                         onChanged: (value) {
                           setState(() {
-                            // If user clears the field, we treat it as 0 temporarily
                             guests = int.tryParse(value) ?? 0;
                             _refreshTotal();
                           });
@@ -326,7 +387,6 @@ class _BookingPageState extends State<BookingPage> {
                     ),
                   ],
                 ),
-                // ------------------------------------
 
                 const SizedBox(height: 20),
                 const Text('Optional Services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -350,6 +410,8 @@ class _BookingPageState extends State<BookingPage> {
               ],
             ),
           ),
+
+          // --- BOTTOM ACTION BAR ---
           Positioned(
             bottom: 20, left: 20, right: 20,
             child: Material(
