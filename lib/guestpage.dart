@@ -9,6 +9,7 @@ import 'login.dart';
 import 'ProfileGuest.dart';
 import 'SavedPageGuest.dart';
 import 'guestbookingpage.dart';
+import 'dart:io';
 
 class GuestPage extends StatefulWidget {
   const GuestPage({super.key});
@@ -263,8 +264,35 @@ class _GuestVenueCard extends StatelessWidget {
   }
 
   Widget _buildImage(String path) {
-    return path.startsWith('http')
-        ? Image.network(path, height: 160, width: double.infinity, fit: BoxFit.cover)
-        : Image.asset(path, height: 160, width: double.infinity, fit: BoxFit.cover);
+    if (path.isEmpty) {
+      return Container(color: Colors.grey, height: 160, child: const Icon(Icons.image_not_supported));
+    }
+
+    if (path.startsWith('http')) {
+      // For images uploaded to Firebase/Web
+      return Image.network(
+        path,
+        height: 160,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+      );
+    } else if (path.startsWith('/') || path.startsWith('content://') || path.contains('com.google')) {
+      return Image.file(
+        File(path),
+        height: 160,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+      );
+    } else {
+      // For local assets
+      return Image.asset(
+        path,
+        height: 160,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
   }
 }

@@ -7,6 +7,7 @@ import 'models/venue.dart';
 import 'MyBookingsPage.dart';
 import 'booking.dart';
 import 'models/animated_toggle.dart';
+import 'dart:io';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -274,8 +275,37 @@ class _VenueCard extends StatelessWidget {
   }
 
   Widget _buildImage(String path) {
-    return path.startsWith('http')
-        ? Image.network(path, height: 160, width: double.infinity, fit: BoxFit.cover)
-        : Image.asset(path, height: 160, width: double.infinity, fit: BoxFit.cover);
+    if (path.isEmpty) {
+      return Container(color: Colors.grey, height: 160, child: const Icon(Icons.image_not_supported));
+    }
+
+    if (path.startsWith('http')) {
+      // For images uploaded to Firebase/Web
+      return Image.network(
+        path,
+        height: 160,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+      );
+    } else if (path.startsWith('/') || path.startsWith('content://') || path.contains('com.google')) {
+      // For images from Image Picker (File Path)
+      // The File() class requires 'import 'dart:io';'
+      return Image.file(
+        File(path),
+        height: 160,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+      );
+    } else {
+      // For local assets (welcome images)
+      return Image.asset(
+        path,
+        height: 160,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
   }
 }
