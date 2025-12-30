@@ -3,7 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'models/venue.dart';
-import 'login.dart';
+import 'payment/PaymentPage.dart';
+import 'package:bookinghall/login.dart';
 
 class GuestBookingPage extends StatefulWidget {
   final Venue venue;
@@ -19,7 +20,9 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
   int guests = 1;
   double totalPrice = 0;
   bool isSubmitting = false;
-  bool isLoadingDates = false; // New: Prevents UI from freezing during date fetch
+  bool isLoadingDates = false;
+
+  late TextEditingController _guestController;
 
   final List<Map<String, dynamic>> addons = [
     {
@@ -48,7 +51,14 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
   @override
   void initState() {
     super.initState();
+    _guestController = TextEditingController(text: guests.toString());
     _refreshTotal();
+  }
+
+  @override
+  void dispose() {
+    _guestController.dispose();
+    super.dispose();
   }
 
   void _refreshTotal() {
@@ -86,7 +96,6 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
           .where('status', whereIn: ['pending', 'confirmed', 'pending_payment'])
           .get();
 
-      // 1. Create a Set of booked date strings for fast lookup
       Set<String> bookedDatesStrings = snapshot.docs.map((doc) {
         DateTime date = (doc['bookingDate'] as Timestamp).toDate();
         return "${date.year}-${date.month}-${date.day}";
@@ -95,16 +104,14 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
       setState(() => isLoadingDates = false);
       if (!mounted) return;
 
-      // 2. CRITICAL FIX: Find the first available date starting from tomorrow
       DateTime firstAvailable = DateTime.now().add(const Duration(days: 1));
       while (bookedDatesStrings.contains("${firstAvailable.year}-${firstAvailable.month}-${firstAvailable.day}")) {
         firstAvailable = firstAvailable.add(const Duration(days: 1));
       }
 
-      // 3. Open the picker with the safe 'firstAvailable' date
       final DateTime? picked = await showDatePicker(
         context: context,
-        initialDate: selectedDate ?? firstAvailable, // Safe date used here
+        initialDate: selectedDate ?? firstAvailable,
         firstDate: DateTime.now(),
         lastDate: DateTime.now().add(const Duration(days: 365)),
         selectableDayPredicate: (DateTime day) {
@@ -114,7 +121,7 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
         builder: (context, child) {
           return Theme(
             data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.light(primary: Color(0xFF102C57)),
+              colorScheme: const ColorScheme.light(primary: const Color(0xFF102C57)),
             ),
             child: child!,
           );
@@ -137,32 +144,170 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a date')));
       return;
     }
+    if (guests < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter number of guests')));
+      return;
+    }
 
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Login Required'),
-                  content: const Text('Please login to book this venue.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginPage()),
-                        );
-                      },
-                      child: const Text('Login'),
-                    ),
+    String cleanedPrice = widget.venue.price.replaceAll(RegExp(r'[^0-9.]'), '');
+    double venueBasePrice = double.tryParse(cleanedPrice) ?? 0.0;
+
+    List<Widget> receiptItems = [
+      Text('Venue: ${widget.venue.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      Text('Base Price: RM${venueBasePrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      const SizedBox(height: 10),
+      Text('Date: ${DateFormat('EEEE, dd MMM yyyy').format(selectedDate!)}'),
+      Text('Total Guests: $guests'),
+      const Divider(height: 30),
+      const Text('Price Breakdown:', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF102C57))),
+      const SizedBox(height: 10),
+    ];
+
+    bool hasAddons = false;
+    for (var addon in addons) {
+      if (addon['selected'] == true) {
+        hasAddons = true;
+        double unitPrice = (addon['price'] as num).toDouble();
+        double subtotal = addon['isPerGuest'] ? (unitPrice * guests) : unitPrice;
+
+        receiptItems.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(addon['name'], style: const TextStyle(fontSize: 14)),
+                    Text('RM${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
-              );
+                Text(
+                  addon['isPerGuest']
+                      ? 'RM${unitPrice.toStringAsFixed(2)} × $guests guests'
+                      : 'Fixed Rate',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
 
+    if (!hasAddons) {
+      receiptItems.add(const Text('No optional services selected', style: TextStyle(fontSize: 13, color: Colors.grey)));
+    }
+
+    receiptItems.addAll([
+      const SizedBox(height: 10),
+      const Divider(thickness: 2),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start, // Aligns both text lines to the left
+        children: [
+          const Text(
+              'TOTAL AMOUNT',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+          ),
+          const SizedBox(height: 4), // Adds a small gap between the label and the price
+          Text(
+            'RM${totalPrice.toStringAsFixed(2)}',
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20, // Made slightly larger for emphasis
+                color: Colors.green
+            ),
+          ),
+        ],
+      ),
+    ]);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Login Required'),
+        content: const Text('Please login to book this venue.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF102C57)),
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+              );
+            },
+            child: const Text('Login'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveBookingToFirestore() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || selectedDate == null) return;
+
+    setState(() => isSubmitting = true);
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final existingQuery = await FirebaseFirestore.instance
+            .collection('bookings')
+            .where('venueId', isEqualTo: widget.venue.id)
+            .where('bookingDate', isEqualTo: Timestamp.fromDate(selectedDate!))
+            .where('status', whereIn: ['pending', 'confirmed', 'pending_payment'])
+            .get();
+
+        if (existingQuery.docs.isNotEmpty) {
+          throw Exception("This date was just taken by someone else!");
+        }
+
+        DocumentReference newBookingRef = FirebaseFirestore.instance.collection('bookings').doc();
+
+        List<String> selectedAddonNames = addons
+            .where((a) => a['selected'] == true)
+            .map((a) => a['name'] as String)
+            .toList();
+
+        transaction.set(newBookingRef, {
+          'userId': user.uid,
+          'venueId': widget.venue.id,
+          'venueName': widget.venue.name,
+          'venueImagePath': widget.venue.imagePath,
+          'bookingDate': Timestamp.fromDate(selectedDate!),
+          'totalPrice': totalPrice,
+          'guests': guests,
+          'addons': selectedAddonNames,
+          'status': 'pending_payment',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PaymentPage(
+                bookingId: newBookingRef.id,
+                amount: totalPrice,
+              ),
+            ),
+          ).then((_) => setState(() => isSubmitting = false));
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll("Exception: ", ""))),
+        );
+      }
+    }
   }
 
   @override
@@ -182,24 +327,23 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(15),
-                  child: // Replace Image.asset with this:
-                  widget.venue.imagePath.startsWith('http')
+                  child: widget.venue.imagePath.startsWith('http')
                       ? Image.network(
-                        widget.venue.imagePath,
-                        width: double.infinity,
-                        height: 220,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
+                    widget.venue.imagePath,
+                    width: double.infinity,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
                   )
                       : Image.asset(
-                        widget.venue.imagePath,
-                        width: double.infinity,
-                        height: 220,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
-                      ),
+                    widget.venue.imagePath,
+                    width: double.infinity,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -215,7 +359,7 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
                         ],
                       ),
                     ),
-                    Text(widget.venue.price, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF102C57))),
+                    Text(widget.venue.price, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF102C57))),
                   ],
                 ),
                 const Divider(height: 40),
@@ -223,29 +367,47 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
                   'YOU ARE REQUIRED TO LOGIN TO BOOK THIS VENUE',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(
+                  height: 30.0,
+                ),
                 const Text('Booking Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.calendar_today, color: Color(0xFF102C57)),
+                  leading: const Icon(Icons.calendar_today, color: const Color(0xFF102C57)),
                   title: Text(selectedDate == null ? 'Select Booking Date' : DateFormat('EEEE, dd MMM yyyy').format(selectedDate!)),
                   trailing: isLoadingDates
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : TextButton(onPressed: () => _pickDate(context), child: const Text('Change')),
                 ),
+
+                // --- GUEST INPUT ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Number of Guests', style: TextStyle(fontSize: 16)),
-                    Row(
-                      children: [
-                        IconButton(onPressed: () { if (guests > 1) { setState(() => guests--); _refreshTotal(); } }, icon: const Icon(Icons.remove_circle_outline)),
-                        Text('$guests', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        IconButton(onPressed: () { setState(() => guests++); _refreshTotal(); }, icon: const Icon(Icons.add_circle_outline)),
-                      ],
-                    )
+                    SizedBox(
+                      width: 80,
+                      child: TextField(
+                        controller: _guestController,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            guests = int.tryParse(value) ?? 0;
+                            _refreshTotal();
+                          });
+                        },
+                      ),
+                    ),
                   ],
                 ),
+
                 const SizedBox(height: 20),
                 const Text('Optional Services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ...addons.asMap().entries.map((entry) {
@@ -257,13 +419,19 @@ class _GuestBookingPageState extends State<GuestBookingPage> {
                     title: Text(addon['name']),
                     subtitle: Text(addon['isPerGuest'] ? 'RM ${addon['price']} × $guests' : 'RM ${addon['price']} flat'),
                     value: addon['selected'],
-                    onChanged: (val) { setState(() { addons[idx]['selected'] = val!; _refreshTotal(); }); },
+                    onChanged: (val) {
+                      setState(() {
+                        addons[idx]['selected'] = val!;
+                        _refreshTotal();
+                      });
+                    },
                   );
                 }).toList(),
               ],
             ),
           ),
 
+          // --- BOTTOM ACTION BAR ---
           Positioned(
             bottom: 20, left: 20, right: 20,
             child: Material(
