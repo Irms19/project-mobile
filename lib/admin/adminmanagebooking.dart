@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'adminpage.dart';
 
 class AdminManageBookingPage extends StatefulWidget {
   const AdminManageBookingPage({super.key});
@@ -24,6 +23,39 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
     }
   }
 
+  // Confirmation Dialog logic
+  void _showConfirmActionDialog(String docId, String newStatus, String actionLabel) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Confirm $actionLabel",
+            style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+        content: Text("Are you sure you want to $actionLabel this booking?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: actionLabel == "Approve" ? Colors.green : Colors.red,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              _updateBookingStatus(docId, newStatus);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Booking $actionLabel" "d successfully")),
+              );
+            },
+            child: Text(actionLabel.toUpperCase(), style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -44,7 +76,7 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
             indicatorColor: Colors.white,
             indicatorWeight: 3,
             labelStyle: TextStyle(fontWeight: FontWeight.bold),
-            tabs: [Tab(text: 'PENDING'), Tab(text: 'HISTORY')], // Changed name to History
+            tabs: [Tab(text: 'PENDING'), Tab(text: 'HISTORY')],
           ),
         ),
         body: Column(
@@ -53,9 +85,7 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
             Expanded(
               child: TabBarView(
                 children: [
-                  // Tab 1: Logic - Action required
                   _buildFirestoreList(['pending', 'pending_payment', 'Upcoming']),
-                  // Tab 2: Logic - Archive/History
                   _buildFirestoreList(['confirmed', 'cancelled', 'Approved', 'Rejected']),
                 ],
               ),
@@ -126,14 +156,13 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
       displayDate = "${dt.day} ${_getMonth(dt.month)} ${dt.year}";
     }
 
-    // Badge color logic for History tab
     Color statusBadgeColor = (status == 'confirmed' || status == 'Approved')
         ? Colors.green
         : (status == 'cancelled' || status == 'Rejected') ? Colors.red : Colors.grey;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      height: 120, // Increased height for the badge
+      height: 120,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(60),
@@ -184,7 +213,6 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
                     ],
                   ),
 
-                  // Status Badge for Completed Tab
                   if (!isPending) ...[
                     const SizedBox(height: 4),
                     Container(
@@ -202,9 +230,15 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
             child: Row(
               children: [
                 if (isPending) ...[
-                  _actionCircle(Icons.check, Colors.green, () => _updateBookingStatus(docId, 'confirmed')),
+                  // Approve Action with Confirmation
+                  _actionCircle(Icons.check, Colors.green, () {
+                    _showConfirmActionDialog(docId, 'confirmed', 'Approve');
+                  }),
                   const SizedBox(width: 10),
-                  _actionCircle(Icons.close, Colors.red, () => _updateBookingStatus(docId, 'Rejected')),
+                  // Reject Action with Confirmation
+                  _actionCircle(Icons.close, Colors.red, () {
+                    _showConfirmActionDialog(docId, 'Rejected', 'reject');
+                  }),
                 ] else
                   _actionCircle(Icons.edit_outlined, primaryColor, () {
                     showDialog(context: context, builder: (context) => EditBookingModal(docId: docId, bookingData: item));
@@ -262,7 +296,6 @@ class _EditBookingModalState extends State<EditBookingModal> {
   late TextEditingController priceController;
   late String selectedStatus;
 
-  // Define the available statuses for the Admin
   final List<String> statusOptions = ['pending', 'confirmed', 'cancelled', 'Rejected'];
 
   @override
@@ -270,8 +303,6 @@ class _EditBookingModalState extends State<EditBookingModal> {
     super.initState();
     venueController = TextEditingController(text: (widget.bookingData['venueName'] ?? '').toString());
     priceController = TextEditingController(text: (widget.bookingData['totalPrice'] ?? '').toString());
-
-    // Set initial status, ensuring it matches one of our options
     String currentStatus = widget.bookingData['status'] ?? 'pending';
     selectedStatus = statusOptions.contains(currentStatus) ? currentStatus : 'pending';
   }
@@ -307,7 +338,6 @@ class _EditBookingModalState extends State<EditBookingModal> {
             const SizedBox(height: 20),
             const Text("Booking Status", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
             const SizedBox(height: 8),
-            // STATUS DROPDOWN
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
@@ -345,8 +375,8 @@ class _EditBookingModalState extends State<EditBookingModal> {
           onPressed: () async {
             await FirebaseFirestore.instance.collection('bookings').doc(widget.docId).update({
               'venueName': venueController.text,
-              'totalPrice': priceController.text,
-              'status': selectedStatus, // Saves the new status
+              'totalPrice': double.tryParse(priceController.text) ?? 0.0,
+              'status': selectedStatus,
             });
             if (mounted) Navigator.pop(context);
           },
