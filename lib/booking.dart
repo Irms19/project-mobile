@@ -19,7 +19,10 @@ class _BookingPageState extends State<BookingPage> {
   int guests = 1;
   double totalPrice = 0;
   bool isSubmitting = false;
-  bool isLoadingDates = false; // New: Prevents UI from freezing during date fetch
+  bool isLoadingDates = false;
+
+  // Controller for the guest input field
+  late TextEditingController _guestController;
 
   final List<Map<String, dynamic>> addons = [
     {
@@ -48,7 +51,14 @@ class _BookingPageState extends State<BookingPage> {
   @override
   void initState() {
     super.initState();
+    _guestController = TextEditingController(text: guests.toString());
     _refreshTotal();
+  }
+
+  @override
+  void dispose() {
+    _guestController.dispose();
+    super.dispose();
   }
 
   void _refreshTotal() {
@@ -65,6 +75,7 @@ class _BookingPageState extends State<BookingPage> {
       double addonsPrice = 0;
       for (var addon in addons) {
         if (addon['selected'] == true) {
+          // If guests is 0 (while typing), we treat it as 0 for calculation
           addonsPrice += addon['isPerGuest']
               ? (addon['price'] * guests)
               : (addon['price'] as num).toDouble();
@@ -86,7 +97,6 @@ class _BookingPageState extends State<BookingPage> {
           .where('status', whereIn: ['pending', 'confirmed', 'pending_payment'])
           .get();
 
-      // 1. Create a Set of booked date strings for fast lookup
       Set<String> bookedDatesStrings = snapshot.docs.map((doc) {
         DateTime date = (doc['bookingDate'] as Timestamp).toDate();
         return "${date.year}-${date.month}-${date.day}";
@@ -95,16 +105,14 @@ class _BookingPageState extends State<BookingPage> {
       setState(() => isLoadingDates = false);
       if (!mounted) return;
 
-      // 2. CRITICAL FIX: Find the first available date starting from tomorrow
       DateTime firstAvailable = DateTime.now().add(const Duration(days: 1));
       while (bookedDatesStrings.contains("${firstAvailable.year}-${firstAvailable.month}-${firstAvailable.day}")) {
         firstAvailable = firstAvailable.add(const Duration(days: 1));
       }
 
-      // 3. Open the picker with the safe 'firstAvailable' date
       final DateTime? picked = await showDatePicker(
         context: context,
-        initialDate: selectedDate ?? firstAvailable, // Safe date used here
+        initialDate: selectedDate ?? firstAvailable,
         firstDate: DateTime.now(),
         lastDate: DateTime.now().add(const Duration(days: 365)),
         selectableDayPredicate: (DateTime day) {
@@ -131,15 +139,18 @@ class _BookingPageState extends State<BookingPage> {
       );
     }
   }
-  // --- TRANSACTIONAL SAVE LOGIC (PREVENTS DOUBLE BOOKING) ---
+
   Future<void> _saveBookingToFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || selectedDate == null) return;
+    if (guests < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter at least 1 guest')));
+      return;
+    }
 
     setState(() => isSubmitting = true);
 
     try {
-      // Transactions ensure that if two people click at once, only one succeeds
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final existingQuery = await FirebaseFirestore.instance
             .collection('bookings')
@@ -199,12 +210,16 @@ class _BookingPageState extends State<BookingPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a date')));
       return;
     }
+    if (guests < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter number of guests')));
+      return;
+    }
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Booking'),
-        content: Text('Venue: ${widget.venue.name}\nDate: ${DateFormat('dd/MM/yyyy').format(selectedDate!)}\nTotal: RM${totalPrice.toStringAsFixed(2)}'),
+        content: Text('Venue: ${widget.venue.name}\nDate: ${DateFormat('dd/MM/yyyy').format(selectedDate!)}\nGuests: $guests\nTotal: RM${totalPrice.toStringAsFixed(2)}'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Edit')),
           ElevatedButton(
@@ -237,22 +252,21 @@ class _BookingPageState extends State<BookingPage> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(15),
-                  child: // Replace Image.asset with this:
-                  widget.venue.imagePath.startsWith('http')
+                  child: widget.venue.imagePath.startsWith('http')
                       ? Image.network(
-                        widget.venue.imagePath,
-                        width: double.infinity,
-                        height: 220,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
+                    widget.venue.imagePath,
+                    width: double.infinity,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
                   )
                       : Image.asset(
-                        widget.venue.imagePath,
-                        width: double.infinity,
-                        height: 220,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
+                    widget.venue.imagePath,
+                    width: double.infinity,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
                         Container(color: Colors.grey[300], child: const Icon(Icons.broken_image, size: 50)),
                   ),
                 ),
@@ -283,19 +297,37 @@ class _BookingPageState extends State<BookingPage> {
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : TextButton(onPressed: () => _pickDate(context), child: const Text('Change')),
                 ),
+
+                // --- MODIFIED GUEST INPUT SECTION ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Number of Guests', style: TextStyle(fontSize: 16)),
-                    Row(
-                      children: [
-                        IconButton(onPressed: () { if (guests > 1) { setState(() => guests--); _refreshTotal(); } }, icon: const Icon(Icons.remove_circle_outline)),
-                        Text('$guests', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        IconButton(onPressed: () { setState(() => guests++); _refreshTotal(); }, icon: const Icon(Icons.add_circle_outline)),
-                      ],
-                    )
+                    SizedBox(
+                      width: 80,
+                      child: TextField(
+                        controller: _guestController,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            // If user clears the field, we treat it as 0 temporarily
+                            guests = int.tryParse(value) ?? 0;
+                            _refreshTotal();
+                          });
+                        },
+                      ),
+                    ),
                   ],
                 ),
+                // ------------------------------------
+
                 const SizedBox(height: 20),
                 const Text('Optional Services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ...addons.asMap().entries.map((entry) {
@@ -307,13 +339,17 @@ class _BookingPageState extends State<BookingPage> {
                     title: Text(addon['name']),
                     subtitle: Text(addon['isPerGuest'] ? 'RM ${addon['price']} × $guests' : 'RM ${addon['price']} flat'),
                     value: addon['selected'],
-                    onChanged: (val) { setState(() { addons[idx]['selected'] = val!; _refreshTotal(); }); },
+                    onChanged: (val) {
+                      setState(() {
+                        addons[idx]['selected'] = val!;
+                        _refreshTotal();
+                      });
+                    },
                   );
                 }).toList(),
               ],
             ),
           ),
-
           Positioned(
             bottom: 20, left: 20, right: 20,
             child: Material(
