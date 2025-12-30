@@ -202,13 +202,21 @@ class _BookingPageState extends State<BookingPage> {
     receiptItems.addAll([
       const SizedBox(height: 10),
       const Divider(thickness: 2),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start, // Aligns both text lines to the left
         children: [
-          const Text('TOTAL AMOUNT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text(
+              'TOTAL AMOUNT',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+          ),
+          const SizedBox(height: 4), // Adds a small gap between the label and the price
           Text(
             'RM${totalPrice.toStringAsFixed(2)}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.green),
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20, // Made slightly larger for emphasis
+                color: Colors.green
+            ),
           ),
         ],
       ),
