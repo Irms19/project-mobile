@@ -10,6 +10,7 @@ class AdminManageBookingPage extends StatefulWidget {
 
 class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
   final Color primaryColor = const Color(0xFF102C57);
+  final Color backgroundColor = const Color(0xFFF8FAFC);
   String searchQuery = "";
 
   // Update Status in Firestore
@@ -46,7 +47,7 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
               _updateBookingStatus(docId, newStatus);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Booking $actionLabel" "d successfully")),
+                SnackBar(content: Text("Booking ${actionLabel}d successfully")),
               );
             },
             child: Text(actionLabel.toUpperCase(), style: const TextStyle(color: Colors.white)),
@@ -61,7 +62,7 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: backgroundColor,
         appBar: AppBar(
           backgroundColor: primaryColor,
           elevation: 0,
@@ -138,17 +139,18 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
           itemBuilder: (context, index) {
             final data = filteredDocs[index].data() as Map<String, dynamic>;
             final docId = filteredDocs[index].id;
-            return _buildPillCard(docId, data);
+            return _buildCleanCard(docId, data);
           },
         );
       },
     );
   }
 
-  Widget _buildPillCard(String docId, Map<String, dynamic> item) {
+  Widget _buildCleanCard(String docId, Map<String, dynamic> item) {
     String status = (item['status'] ?? '').toString();
     bool isPending = status == 'pending' || status == 'pending_payment' || status == 'Upcoming';
     String uID = (item['userId'] ?? '').toString();
+    List<dynamic> addons = item['addons'] ?? [];
 
     String displayDate = "No Date";
     if (item['bookingDate'] != null) {
@@ -157,97 +159,126 @@ class _AdminManageBookingPageState extends State<AdminManageBookingPage> {
     }
 
     Color statusBadgeColor = (status == 'confirmed' || status == 'Approved')
-        ? Colors.green
-        : (status == 'cancelled' || status == 'Rejected') ? Colors.red : Colors.grey;
+        ? Colors.green : (status == 'cancelled' || status == 'Rejected') ? Colors.red : Colors.orange;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      height: 120,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(60),
-        border: Border.all(color: primaryColor.withOpacity(0.15)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 120, height: 120,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(60), bottomLeft: Radius.circular(60)),
-              child: Image.asset(
-                item['venueImagePath'] ?? 'assets/welcome1.jpg',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left Side: Venue Image
+            SizedBox(
+              width: 100,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), bottomLeft: Radius.circular(20)),
+                child: Image.asset(
+                  item['venueImagePath'] ?? 'assets/welcome1.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image)),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text((item['venueName'] ?? "NO NAME").toString().toUpperCase(),
-                      style: TextStyle(color: primaryColor, fontWeight: FontWeight.w900, fontSize: 16)),
 
-                  FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance.collection('users').doc(uID).get(),
-                    builder: (context, userSnapshot) {
-                      if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                        final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
-                        return Text('User: ${userData?['username'] ?? 'Anonymous'}',
-                            style: TextStyle(color: Colors.grey[700], fontSize: 12));
-                      }
-                      return const Text('User: ...', style: TextStyle(color: Colors.grey, fontSize: 12));
-                    },
-                  ),
+            // Middle: Information
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text((item['venueName'] ?? "NO NAME").toString().toUpperCase(),
+                              style: TextStyle(color: primaryColor, fontWeight: FontWeight.w900, fontSize: 14)),
+                        ),
+                        Text("RM${item['totalPrice']?.toStringAsFixed(2) ?? '0.00'}",
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12)),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance.collection('users').doc(uID).get(),
+                      builder: (context, userSnapshot) {
+                        final userName = (userSnapshot.data?.data() as Map?)?['username'] ?? 'Anonymous';
+                        return Text('User: $userName', style: TextStyle(color: Colors.grey[600], fontSize: 11));
+                      },
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_month, size: 12, color: primaryColor.withOpacity(0.7)),
+                        const SizedBox(width: 4),
+                        Text(displayDate, style: TextStyle(color: primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        if (!isPending) _buildStatusBadge(status, statusBadgeColor),
+                      ],
+                    ),
 
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_month, size: 14, color: primaryColor.withOpacity(0.7)),
-                      const SizedBox(width: 4),
-                      Text(displayDate, style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+                    const Divider(height: 16),
 
-                  if (!isPending) ...[
+                    // Display Add-ons
+                    const Text("ADD-ONS:", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
                     const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: statusBadgeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                      child: Text(status.toUpperCase(), style: TextStyle(color: statusBadgeColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                    addons.isEmpty
+                        ? const Text("None selected", style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic))
+                        : Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: addons.map((addon) => _buildAddonChip(addon.toString())).toList(),
                     ),
                   ],
+                ),
+              ),
+            ),
+
+            // Right Side: Action Buttons
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.only(topRight: Radius.circular(20), bottomRight: Radius.circular(20)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isPending) ...[
+                    _actionCircle(Icons.check, Colors.green, () => _showConfirmActionDialog(docId, 'confirmed', 'Approve')),
+                    const SizedBox(height: 12),
+                    _actionCircle(Icons.close, Colors.red, () => _showConfirmActionDialog(docId, 'Rejected', 'Reject')),
+                  ] else
+                    _actionCircle(Icons.edit_note_rounded, primaryColor, () {
+                      showDialog(context: context, builder: (context) => EditBookingModal(docId: docId, bookingData: item));
+                    }),
                 ],
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 20),
-            child: Row(
-              children: [
-                if (isPending) ...[
-                  // Approve Action with Confirmation
-                  _actionCircle(Icons.check, Colors.green, () {
-                    _showConfirmActionDialog(docId, 'confirmed', 'Approve');
-                  }),
-                  const SizedBox(width: 10),
-                  // Reject Action with Confirmation
-                  _actionCircle(Icons.close, Colors.red, () {
-                    _showConfirmActionDialog(docId, 'Rejected', 'reject');
-                  }),
-                ] else
-                  _actionCircle(Icons.edit_outlined, primaryColor, () {
-                    showDialog(context: context, builder: (context) => EditBookingModal(docId: docId, bookingData: item));
-                  }),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildStatusBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+      child: Text(text.toUpperCase(), style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildAddonChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(4)),
+      child: Text(label, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
     );
   }
 
